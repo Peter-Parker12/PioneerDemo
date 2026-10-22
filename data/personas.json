@@ -1,0 +1,16 @@
+[
+  {
+    "id": "marites",
+    "name": "Marites Santos",
+    "age": 38,
+    "tagline": "OFW spouse, 2 kids, husband works in Dubai",
+    "scenario": "Marites was referred by a neighbour. Her husband is a welder in Dubai and sends money monthly. She is thinking about a Personal Accident plan for the family but worries about cost and whether claims are actually paid.",
+    "goal": "Understand her needs, handle the price and trust objections, and agree to a next step (quotation or application).",
+    "difficulty": "Medium",
+    "background": "Household income about PHP 55,000/month (remittance plus her sari-sari store). Has PhilHealth only. Her aunt's insurance claim was delayed for months, so she distrusts insurers. Speaks Taglish, polite but guarded.",
+    "objections": ["Mahal ang premium", "Baka hindi ma-claim", "May PhilHealth na kami", "Pag-usapan ko muna sa asawa ko"],
+    "active": true
+  },
+  {"id":"joel","name":"Joel Mendoza","age":29,"tagline":"First-time car owner, BPO team lead","scenario":"Wants comprehensive motor cover, comparing three insurers.","goal":"Differentiate on claims service.","difficulty":"Easy","active":false},
+  {"id":"engr","name":"Engr. Carlos Dizon","age":51,"tagline":"SME owner, 14 delivery vans","scenario":"Fleet renewal, pushing for a lower premium.","goal":"Hold value without discounting.","difficulty":"Hard","active":false}
+]

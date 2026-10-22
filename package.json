@@ -1,0 +1,22 @@
+{
+  "name": "pioneer-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Interactive AI demo for Pioneer Insurance: claims workbench + sales agent academy",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "make-docs": "node scripts/make-docs.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.1.0",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "pdfkit": "^0.20.2"
+  }
+}

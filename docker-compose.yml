@@ -1,0 +1,8 @@
+services:
+  pioneer-demo:
+    build: .
+    image: pioneer-demo:latest
+    ports:
+      - "3000:3000"
+    env_file: .env
+    restart: unless-stopped

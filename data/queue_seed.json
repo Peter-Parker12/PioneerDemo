@@ -1,0 +1,9 @@
+[
+  {"id":"CLM-2026-1031","claimant":"Dennis C. Uy","type":"Motor - own damage","amount":71300,"received":"2026-10-19","status":"In assessment","score":18,"assignee":"M. Ocampo"},
+  {"id":"CLM-2026-1029","claimant":"Rosalie B. Navarro","type":"Fire - residential","amount":420000,"received":"2026-10-18","status":"Docs requested","score":31,"assignee":"J. Sarmiento"},
+  {"id":"CLM-2026-1024","claimant":"Angelica F. Reyes","type":"Motor - own damage","amount":35400,"received":"2026-10-16","status":"Fast-track approved","score":9,"assignee":"Auto"},
+  {"id":"CLM-2026-1019","claimant":"Felix T. Mercado","type":"Personal accident","amount":58000,"received":"2026-10-15","status":"In assessment","score":22,"assignee":"M. Ocampo"},
+  {"id":"CLM-2026-1017","claimant":"Teresita G. Cruz","type":"Motor - third party","amount":96500,"received":"2026-10-14","status":"Escalated to SIU","score":68,"assignee":"SIU"},
+  {"id":"CLM-2026-1011","claimant":"Bernard K. Co","type":"Motor - theft","amount":610000,"received":"2026-10-12","status":"In assessment","score":47,"assignee":"J. Sarmiento"},
+  {"id":"CLM-2026-1006","claimant":"Maribel S. Ramos","type":"Motor - own damage","amount":28900,"received":"2026-10-10","status":"Fast-track approved","score":6,"assignee":"Auto"}
+]

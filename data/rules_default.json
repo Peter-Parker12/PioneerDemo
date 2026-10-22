@@ -1,0 +1,15 @@
+{
+  "version": "illustrative - based on typical Philippine motor policy wording; confirm with Pioneer",
+  "rules": [
+    {"id":"R01","name":"Policy in force and premium paid","text":"The policy must be in force on the date of loss and the premium paid. Otherwise the claim is declined.","kind":"gate","enabled":true,"param":null,"action":"decline","weight":0},
+    {"id":"R02","name":"Prompt notice of loss","text":"Loss should be reported within the allowed number of days after it occurred. Late notice goes to an adjuster.","kind":"gate","enabled":true,"param":{"key":"days","label":"Max days to report","value":30,"unit":"days"},"action":"review","weight":8},
+    {"id":"R03","name":"Required documents complete","text":"Claim form, LTO OR/CR, driver's license, police report (collision/theft) and repair estimate must be on file.","kind":"gate","enabled":true,"param":null,"action":"review","weight":0},
+    {"id":"R04","name":"Authorised driver with valid license","text":"The driver must be an authorised driver on the policy and hold a license valid on the date of loss. Otherwise the claim is declined.","kind":"gate","enabled":true,"param":null,"action":"decline","weight":0},
+    {"id":"R05","name":"Fast-track eligibility","text":"Own-damage claims at or below the limit with complete documents and no other flags can be approved without adjuster review.","kind":"eligibility","enabled":true,"param":{"key":"limit","label":"Fast-track limit","value":50000,"unit":"PHP"},"action":"approve","weight":0},
+    {"id":"R06","name":"Estimate vs. typical repair cost","text":"Flag when the repair estimate exceeds the typical cost for this vehicle and damage type by more than the allowed percentage.","kind":"flag","enabled":true,"param":{"key":"pct","label":"Max deviation","value":25,"unit":"%"},"action":"review","weight":10},
+    {"id":"R07","name":"Early claim after inception","text":"Flag losses occurring within the set number of days after policy inception.","kind":"flag","enabled":true,"param":{"key":"days","label":"Early-claim window","value":30,"unit":"days"},"action":"escalate","weight":22},
+    {"id":"R08","name":"Duplicate / repeat claim","text":"Flag when the same plate has another claim within the lookback window.","kind":"flag","enabled":true,"param":{"key":"days","label":"Lookback window","value":180,"unit":"days"},"action":"escalate","weight":28},
+    {"id":"R09","name":"Repair shop concentration","text":"Flag when the repair shop appears on at least this many other claims in the last 12 months.","kind":"flag","enabled":true,"param":{"key":"count","label":"Claims at shop","value":3,"unit":"claims"},"action":"review","weight":14},
+    {"id":"R10","name":"Receipt validity and match","text":"If a receipt is attached it must show TIN, invoice number, date and total, and the total must match the estimate within the tolerance.","kind":"flag","enabled":true,"param":{"key":"pct","label":"Match tolerance","value":10,"unit":"%"},"action":"review","weight":12}
+  ]
+}
