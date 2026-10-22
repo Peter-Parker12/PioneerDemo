@@ -7,7 +7,7 @@ Score each of five criteria from 0 to 20:
 4. Clarity & compliance: accurate, plain language, no overpromising, honest about exclusions, consistent with the product sheet.
 5. Closing: did the agent propose a clear, appropriate next step?
 
-For each criterion give a short comment and one verbatim quote from the AGENT (copy exactly from the transcript; use an empty string only if the agent said nothing relevant). Then list the customer's objections raised and whether the agent handled each. Finally pick the single weakest agent reply and rewrite it the way a strong agent would (in the same language mix the agent used, short).
+For each criterion give a short comment and one verbatim quote from the AGENT (copy exactly from the transcript; use an empty string only if the agent said nothing relevant). Then list the customer's objections raised and whether the agent handled each. Finally pick the single weakest agent reply and rewrite it the way a strong agent would (in English, short).
 
 # Customer persona
 {{PERSONA}}
