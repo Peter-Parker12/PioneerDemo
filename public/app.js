@@ -1,44 +1,40 @@
-import { renderQueue, renderClaim } from "/views/claims.js";
-import { renderRules } from "/views/rules.js";
-import { renderAcademy } from "/views/academy.js";
+import { renderLogin } from "/views/login.js";
+import { renderCustomerHome, renderNewClaim, renderClaim, customerBoot } from "/views/customer.js";
+import { renderLeads, renderProducts, mountAssistant, unmountAssistant } from "/views/agent.js";
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const php = (n) => "₱" + Math.round(Number(n) || 0).toLocaleString("en-PH");
-export const fmtDate = (d) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-PH", { day: "numeric", month: "short", year: "numeric" }) : "-");
+export const fmtDate = (d) => (d ? new Date(d.slice(0, 10) + "T00:00:00").toLocaleDateString("en-PH", { day: "numeric", month: "short", year: "numeric" }) : "-");
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ---------- persisted state ----------
-const KEY = "pioneer_demo_v1";
-export const boot = { data: null };
-export const state = (() => {
-  let s = {};
-  try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
-  return s;
-})();
-export function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
-export function resetDemo() { try { localStorage.removeItem(KEY); } catch {} location.hash = "#/claims"; location.reload(); }
+export const LOGO = `<svg class="logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0fa3a3"/><path d="M6 10l4.5 12L16 12l5.5 10L26 10" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+// ---------- session ----------
+const SKEY = "wfs_session";
+export const session = {
+  get() { try { return JSON.parse(localStorage.getItem(SKEY)); } catch { return null; } },
+  set(s) { try { localStorage.setItem(SKEY, JSON.stringify(s)); } catch {} },
+  clear() { try { localStorage.removeItem(SKEY); } catch {} },
+};
 
 // ---------- api ----------
-export async function api(path, body) {
-  const headers = { "Content-Type": "application/json" };
-  const pc = localStorage.getItem("pioneer_passcode");
-  if (pc) headers["x-passcode"] = pc;
-  const res = await fetch("/api" + path, { method: body ? "POST" : "GET", headers, body: body ? JSON.stringify(body) : undefined });
-  if (res.status === 401) {
-    const p = prompt("Enter the demo passcode");
-    if (p) { localStorage.setItem("pioneer_passcode", p); return api(path, body); }
-    throw new Error("Passcode required");
-  }
+function authHeaders() {
+  const h = { "Content-Type": "application/json" };
+  const s = session.get();
+  if (s?.token) h["x-token"] = s.token;
+  return h;
+}
+export async function api(path, body, method) {
+  const res = await fetch("/api" + path, { method: method || (body ? "POST" : "GET"), headers: authHeaders(), body: body ? JSON.stringify(body) : undefined });
   const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(j.error || res.statusText);
+  if (res.status === 401 && path !== "/login") { session.clear(); location.hash = "#/login"; throw new Error(j.error || "Please sign in again"); }
+  if (!res.ok) { const e = new Error(j.error || res.statusText); e.offline = j.offline; throw e; }
   return j;
 }
-// Server-sent-event POST: calls onText for each delta.
-export async function streamApi(path, body, onText) {
-  const headers = { "Content-Type": "application/json" };
-  const pc = localStorage.getItem("pioneer_passcode");
-  if (pc) headers["x-passcode"] = pc;
-  const res = await fetch("/api" + path, { method: "POST", headers, body: JSON.stringify(body) });
+// Server-sent-event POST: calls onEvent for each JSON event.
+export async function streamApi(path, body, onEvent) {
+  const res = await fetch("/api" + path, { method: "POST", headers: authHeaders(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   const reader = res.body.getReader();
   const dec = new TextDecoder();
@@ -51,14 +47,10 @@ export async function streamApi(path, body, onText) {
     while ((i = buf.indexOf("\n\n")) >= 0) {
       const line = buf.slice(0, i).replace(/^data: /, "");
       buf = buf.slice(i + 2);
-      if (!line) continue;
-      const ev = JSON.parse(line);
-      if (ev.error) throw new Error(ev.error);
-      if (ev.t) onText(ev.t);
+      if (line) onEvent(JSON.parse(line));
     }
   }
 }
-
 export function fileToB64(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -67,17 +59,13 @@ export function fileToB64(file) {
     r.readAsDataURL(file);
   });
 }
-export async function fetchAsFile(url, name) {
-  const blob = await (await fetch(url)).blob();
-  return new File([blob], name, { type: blob.type || "application/pdf" });
-}
 
 // ---------- ui helpers ----------
 let toastT;
 export function toast(msg, err) {
   const t = $("#toast");
   t.textContent = msg; t.className = "show" + (err ? " err" : "");
-  clearTimeout(toastT); toastT = setTimeout(() => (t.className = ""), 3200);
+  clearTimeout(toastT); toastT = setTimeout(() => (t.className = ""), 3400);
 }
 export function modal(html, { wide } = {}) {
   const root = $("#modal-root");
@@ -86,33 +74,87 @@ export function modal(html, { wide } = {}) {
   root.querySelector(".overlay").addEventListener("mousedown", (e) => { if (e.target.classList.contains("overlay")) close(); });
   return { el: root.querySelector(".modal"), close };
 }
-export const scoreClass = (s) => (s >= 60 ? "high" : s >= 30 ? "med" : "low");
+// Small markdown subset for assistant replies: bold, italics, bullets, numbered lists, tables, [Source: ...] chips.
+export function md(src) {
+  const inline = (s) => esc(s)
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|\s)_(.+?)_(?=\s|$|[.,])/g, "$1<i>$2</i>")
+    .replace(/\[Source: ([^\]]+)\]/g, '<span class="src">Source: $1</span>');
+  const lines = String(src).split("\n");
+  let html = "", list = null;
+  const close = () => { if (list) { html += `</${list}>`; list = null; } };
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^\s*\|/.test(l) && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1] || "")) {
+      close();
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const head = cells(l); i += 2;
+      const rows = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(cells(lines[i++]));
+      i--;
+      html += `<table><thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    } else if (/^\s*[-*] /.test(l)) { if (list !== "ul") { close(); html += "<ul>"; list = "ul"; } html += `<li>${inline(l.replace(/^\s*[-*] /, ""))}</li>`; }
+    else if (/^\s*\d+\. /.test(l)) { if (list !== "ol") { close(); html += "<ol>"; list = "ol"; } html += `<li>${inline(l.replace(/^\s*\d+\. /, ""))}</li>`; }
+    else if (!l.trim()) close();
+    else { close(); html += `<p>${inline(l)}</p>`; }
+  }
+  close();
+  return html;
+}
+
+// ---------- header ----------
+const initials = (n) => n.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+let ai = null;
+function paintHeader(sec) {
+  const s = session.get();
+  const top = $("#top");
+  if (!s) { top.innerHTML = `<a class="brand" href="#/login">${LOGO}<span>Workforce Solution</span></a>`; return; }
+  const nav = s.role === "customer"
+    ? [["customer", "My account", "#/customer"], ["new", "Submit a claim", "#/customer/new"]]
+    : [["leads", "Leads", "#/agent"], ["products", "Products", "#/agent/products"]];
+  top.innerHTML = `
+    <a class="brand" href="${s.role === "customer" ? "#/customer" : "#/agent"}">${LOGO}<span>Workforce Solution</span><em>${s.role === "customer" ? "Customer portal" : "Agent workspace"}</em></a>
+    <nav id="nav">${nav.map(([k, l, h]) => `<a href="${h}" data-nav="${k}" class="${k === sec ? "on" : ""}">${l}</a>`).join("")}</nav>
+    <div class="who">
+      <span class="pill ${ai?.live ? "live" : "demo"}" title="${esc(ai?.live ? "Claude is connected" : ai?.configured ? "Claude key check failed, showing built-in demo data" : "No API key set, showing built-in demo data")}"><i></i>${ai?.live ? "Live AI" : "Demo mode"}</span>
+      <div class="userbox"><div class="avatar-sm">${esc(initials(s.name))}</div><span>${esc(s.name)}</span></div>
+      <button class="linkbtn" id="logout">Sign out</button>
+    </div>`;
+  $("#logout").onclick = () => { session.clear(); unmountAssistant(); location.hash = "#/login"; };
+}
 
 // ---------- router ----------
 const app = $("#app");
 async function route() {
+  const s = session.get();
   const parts = location.hash.replace(/^#\/?/, "").split("/");
-  const sec = parts[0] || "claims";
-  document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("on", a.dataset.nav === sec));
+  const area = parts[0];
   window.scrollTo(0, 0);
-  if (sec === "claims" && parts[1]) return renderClaim(app, parts[1]);
-  if (sec === "claims") return renderQueue(app);
-  if (sec === "rules") return renderRules(app);
-  if (sec === "academy") return renderAcademy(app, parts[1] || "home");
-  location.hash = "#/claims";
+  $("#modal-root").innerHTML = "";
+  app.style.maxWidth = ""; app.style.padding = "";
+  if (!s) { unmountAssistant(); paintHeader(); return renderLogin(app, () => { ai = null; refreshAi().then(route); }); }
+  if (area !== s.role) {
+    location.hash = s.role === "customer" ? "#/customer" : "#/agent";
+    return;
+  }
+  try {
+    if (s.role === "customer") {
+      await customerBoot();
+      paintHeader(parts[1] === "new" ? "new" : "customer");
+      if (parts[1] === "new") return renderNewClaim(app);
+      if (parts[1] === "claim" && parts[2]) return renderClaim(app, parts[2]);
+      return renderCustomerHome(app);
+    }
+    mountAssistant();
+    paintHeader(parts[1] === "products" ? "products" : "leads");
+    if (parts[1] === "products") return renderProducts(app);
+    return renderLeads(app);
+  } catch (e) {
+    app.innerHTML = `<div class="card empty">Could not load the page: ${esc(e.message)}</div>`;
+  }
 }
 window.addEventListener("hashchange", route);
 
-(async function start() {
-  try {
-    boot.data = await api("/bootstrap");
-  } catch (e) {
-    app.innerHTML = `<div class="card empty">Could not load demo data: ${esc(e.message)}</div>`;
-    return;
-  }
-  if (!state.rules) state.rules = structuredClone(boot.data.rules);
-  if (!state.claims) state.claims = {};
-  if (!state.sessions) state.sessions = [];
-  save();
-  route();
-})();
+async function refreshAi() {
+  try { ai = (await (await fetch("/api/health")).json()).ai; } catch {}
+}
+refreshAi().then(route);

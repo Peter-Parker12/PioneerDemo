@@ -2,38 +2,37 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { askJson, streamChat, MODEL } from "./claude.js";
-import { evaluate, defaultRules, history } from "./rules.js";
+import { askJson, MODEL, live, status, checkKey } from "./claude.js";
+import { evaluate, defaultRules, policies } from "./rules.js";
+import { heroClaim, receipts as sampleReceipts, SAMPLE_CLAIM_PACK } from "./fixtures.js";
+import { listLeads, sentEmails, updateLead, resetCrm, findLead, createLead, sendEmail } from "./crm.js";
+import { runAssistant, suggestions } from "./assistant.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (...p) => fs.readFileSync(path.join(root, ...p), "utf8");
+const json = (f) => JSON.parse(read("data", f));
 const app = express();
 app.use(express.json({ limit: "40mb" }));
 
-// ---- optional passcode (the Cloudflare URL is public and API calls cost money) ----
-const PASSCODE = process.env.DEMO_PASSCODE;
-app.use("/api", (req, res, next) => {
-  if (!PASSCODE || req.path === "/health" || req.get("x-passcode") === PASSCODE) return next();
-  res.status(401).json({ error: "passcode" });
+// ---- hardcoded demo accounts (demo only: no real authentication) ----
+const ACCOUNTS = [
+  { email: "ramon@workforcesolution.demo", password: "customer123", role: "customer", name: "Ramon A. Dela Cruz", token: "demo-customer" },
+  { email: "angelo@workforcesolution.demo", password: "agent123", role: "agent", name: "Angelo Reyes", token: "demo-agent" },
+];
+const byToken = (t) => ACCOUNTS.find((a) => a.token === t);
+const needs = (role) => (req, res, next) => (byToken(req.get("x-token"))?.role === role ? next() : res.status(401).json({ error: "Please sign in again" }));
+
+app.get("/api/health", (_req, res) => res.json({ ok: true, ai: { ...status, live: live() } }));
+app.post("/api/login", (req, res) => {
+  const a = ACCOUNTS.find((x) => x.email === String(req.body.email || "").trim().toLowerCase() && x.password === req.body.password);
+  if (!a) return res.status(401).json({ error: "Wrong email or password" });
+  res.json({ token: a.token, role: a.role, name: a.name, email: a.email });
 });
-app.get("/api/health", (_req, res) => res.json({ ok: true, model: MODEL, passcode: !!PASSCODE }));
 
 // ---- static ----
 app.use(express.static(path.join(root, "public")));
 app.use("/files/claim", express.static(path.join(root, "data/claims/hero-claim")));
 app.use("/files/receipts", express.static(path.join(root, "data/receipts")));
-app.get("/api/bootstrap", (_req, res) => {
-  const j = (f) => JSON.parse(read("data", f));
-  res.json({
-    queue: j("queue_seed.json"),
-    rules: defaultRules,
-    personas: j("personas.json"),
-    seed: j("sessions_seed.json"),
-    history,
-    claimFiles: fs.readdirSync(path.join(root, "data/claims/hero-claim")).filter((f) => f.endsWith(".pdf")).sort(),
-    receiptFiles: fs.readdirSync(path.join(root, "data/receipts")).filter((f) => f.endsWith(".pdf")).sort(),
-  });
-});
 
 const fail = (res, e) => {
   console.error(e);
@@ -44,37 +43,37 @@ const fileBlock = (f) =>
     ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data } }
     : { type: "image", source: { type: "base64", media_type: f.mediaType, data: f.data } };
 
-// ---- Claims: extraction ----
+// =====================================================================
+// Customer portal
+// =====================================================================
+const customer = needs("customer");
+
+app.get("/api/customer/bootstrap", customer, (_req, res) => {
+  res.json({
+    policy: policies[0],
+    claimFiles: fs.readdirSync(path.join(root, "data/claims/hero-claim")).filter((f) => f.endsWith(".pdf")).sort(),
+    receiptFiles: fs.readdirSync(path.join(root, "data/receipts")).filter((f) => f.endsWith(".pdf")).sort(),
+  });
+});
+
 const str = { type: "string" };
 const claimSchema = {
-  type: "object",
-  additionalProperties: false,
+  type: "object", additionalProperties: false,
   required: ["documents", "fields", "normalized"],
   properties: {
     documents: {
       type: "array",
       items: {
-        type: "object", additionalProperties: false,
-        required: ["filename", "doc_type", "summary"],
-        properties: {
-          filename: str,
-          doc_type: { type: "string", enum: ["claim_form", "or_cr", "drivers_license", "police_report", "repair_estimate", "other"] },
-          summary: str,
-        },
+        type: "object", additionalProperties: false, required: ["filename", "doc_type", "summary"],
+        properties: { filename: str, doc_type: { type: "string", enum: ["claim_form", "or_cr", "drivers_license", "police_report", "repair_estimate", "other"] }, summary: str },
       },
     },
     fields: {
       type: "array",
-      description: "Every key fact read from the documents, for display to the adjuster",
+      description: "Every key fact read from the documents, shown to the customer for confirmation",
       items: {
-        type: "object", additionalProperties: false,
-        required: ["key", "label", "value", "confidence", "source_doc", "source_quote"],
-        properties: {
-          key: str, label: str, value: str,
-          confidence: { type: "number", description: "0 to 1" },
-          source_doc: { type: "string", description: "filename the value was read from" },
-          source_quote: { type: "string", description: "short verbatim text from the document" },
-        },
+        type: "object", additionalProperties: false, required: ["key", "label", "value", "confidence", "source_doc", "source_quote"],
+        properties: { key: str, label: str, value: str, confidence: { type: "number", description: "0 to 1" }, source_doc: { type: "string", description: "filename the value was read from" }, source_quote: { type: "string", description: "short verbatim text from the document" } },
       },
     },
     normalized: {
@@ -85,9 +84,7 @@ const claimSchema = {
         vehicle_model: { type: "string", description: "Make and model only, e.g. 'Toyota Vios'" },
         loss_date: { type: "string", description: "YYYY-MM-DD" },
         reported_date: { type: "string", description: "YYYY-MM-DD date the claim was reported to the insurer" },
-        loss_location: str,
-        license_expiry: { type: "string", description: "YYYY-MM-DD" },
-        repair_shop: str,
+        loss_location: str, license_expiry: { type: "string", description: "YYYY-MM-DD" }, repair_shop: str,
         estimate_total: { type: "number", description: "Total repair estimate in PHP" },
         damage_categories_note: str,
         damage_category: { type: "string", enum: ["front_collision", "rear_collision", "side_collision", "theft", "flood", "fire", "other"] },
@@ -97,14 +94,16 @@ const claimSchema = {
   },
 };
 
-app.post("/api/claims/extract", async (req, res) => {
+// `sample` returns the canned hero claim; the browser plays the reading animation.
+// Real uploads go to Claude; if it is unavailable the customer is pointed at the sample pack instead of seeing wrong data.
+app.post("/api/claims/extract", customer, async (req, res) => {
   try {
+    if (req.body.sample === SAMPLE_CLAIM_PACK) return res.json({ ...heroClaim, source: "sample" });
     const files = req.body.files || [];
     if (!files.length) return res.status(400).json({ error: "No files" });
+    if (!live()) return res.status(503).json({ error: "The AI reader is offline in this demo. Use the sample claim pack to see the full experience.", offline: true });
     const content = [];
-    for (const f of files) {
-      content.push({ type: "text", text: `Document filename: ${f.name}` }, fileBlock(f));
-    }
+    for (const f of files) content.push({ type: "text", text: `Document filename: ${f.name}` }, fileBlock(f));
     content.push({
       type: "text",
       text: "These documents make up one motor insurance claim submission. Classify each document, read every key fact into `fields` (claimant, policy no., vehicle, plate, chassis/engine, date and place of loss, narrative summary, driver, license no. and expiry, police blotter no., repair shop and TIN, estimate no. and total, etc.) with a 0-1 confidence and the filename and a short verbatim quote it came from, and fill `normalized` with machine-readable values (dates as YYYY-MM-DD, amounts as numbers). Use empty string or 0 when a value is not present. Do not invent anything.",
@@ -113,151 +112,106 @@ app.post("/api/claims/extract", async (req, res) => {
       system: "You are a claims intake assistant for a Philippine non-life insurer. You read claim documents accurately and never guess.",
       content, schema: claimSchema, effort: "low", max_tokens: 6000,
     });
-    res.json(result);
-  } catch (e) { fail(res, e); }
+    res.json({ ...result, source: "live" });
+  } catch (e) {
+    console.error(e);
+    res.status(503).json({ error: "The AI reader could not finish in time. Try again, or use the sample claim pack.", offline: true });
+  }
 });
 
-// ---- Claims: rules (instant) and narration (LLM) ----
-app.post("/api/claims/evaluate", (req, res) => {
-  try { res.json(evaluate(req.body.claim, req.body.rules || defaultRules)); } catch (e) { fail(res, e); }
-});
-
-const narrativeSchema = {
-  type: "object", additionalProperties: false,
-  required: ["summary", "flag_reasons", "recommendation"],
-  properties: {
-    summary: { type: "string", description: "2 to 3 sentences for the adjuster" },
-    flag_reasons: {
-      type: "array",
-      items: { type: "object", additionalProperties: false, required: ["rule_id", "reasoning"], properties: { rule_id: str, reasoning: str } },
-    },
-    recommendation: str,
-  },
-};
-
-app.post("/api/claims/narrate", async (req, res) => {
+// Customer-safe view of the internal checks: which documents are missing and whether the policy was in force.
+app.post("/api/claims/check", customer, (req, res) => {
   try {
-    const { claim, evaluation } = req.body;
-    const brief = {
-      claim: claim.normalized,
-      receipt: claim.receipt || null,
-      score: evaluation.score, band: evaluation.band, recommended_action: evaluation.outcome,
-      rules: evaluation.results.filter((r) => r.status === "fail").map(({ id, name, detail, action }) => ({ id, name, detail, action })),
-      passed: evaluation.results.filter((r) => r.status === "pass").map(({ id, name, detail }) => ({ id, name, detail })),
-    };
-    const result = await askJson({
-      system: "You write the AI assessment shown to a claims adjuster at a Philippine insurer. Be factual, specific, and calm; the facts below come from a deterministic rule engine, so do not add facts or change the score. Never accuse anyone of fraud; describe indicators that warrant review. For each fired rule, write 1 to 2 plain-language sentences explaining why it matters here, using the concrete details given.",
-      content: [{ type: "text", text: JSON.stringify(brief, null, 1) }],
-      schema: narrativeSchema, effort: "low", max_tokens: 2000,
+    const ev = evaluate(req.body.claim, defaultRules);
+    const r01 = ev.results.find((r) => r.id === "R01");
+    res.json({
+      checklist: ev.checklist,
+      policy: ev.policy && { policy_no: ev.policy.policy_no, product: ev.policy.product, inception: ev.policy.inception, expiry: ev.policy.expiry },
+      inForce: r01?.status === "pass",
+      note: r01?.detail || "",
     });
-    res.json(result);
   } catch (e) { fail(res, e); }
 });
 
-// ---- Receipts ----
 const receiptSchema = {
   type: "object", additionalProperties: false,
   required: ["is_receipt", "document_type", "vendor_name", "vendor_tin", "vendor_address", "invoice_no", "date", "line_items", "subtotal", "vat", "total", "payment_method", "checks", "confidence", "notes"],
   properties: {
-    is_receipt: { type: "boolean" },
-    document_type: { type: "string", description: "e.g. Sales Invoice, Official Receipt, Hospital Statement of Account" },
-    vendor_name: str, vendor_tin: str, vendor_address: str, invoice_no: str,
+    is_receipt: { type: "boolean" }, document_type: str, vendor_name: str, vendor_tin: str, vendor_address: str, invoice_no: str,
     date: { type: "string", description: "YYYY-MM-DD, empty if unreadable" },
-    line_items: {
-      type: "array",
-      items: { type: "object", additionalProperties: false, required: ["description", "qty", "amount"], properties: { description: str, qty: { type: "number" }, amount: { type: "number" } } },
-    },
-    subtotal: { type: "number" }, vat: { type: "number" }, total: { type: "number" },
-    payment_method: str,
-    checks: {
-      type: "array",
-      description: "Validity checks for a Philippine BIR-style receipt: TIN present, invoice/OR number present, date present, total present, line items sum to total",
-      items: { type: "object", additionalProperties: false, required: ["check", "passed", "note"], properties: { check: str, passed: { type: "boolean" }, note: str } },
-    },
-    confidence: { type: "number" },
-    notes: str,
+    line_items: { type: "array", items: { type: "object", additionalProperties: false, required: ["description", "qty", "amount"], properties: { description: str, qty: { type: "number" }, amount: { type: "number" } } } },
+    subtotal: { type: "number" }, vat: { type: "number" }, total: { type: "number" }, payment_method: str,
+    checks: { type: "array", description: "Validity checks for a Philippine BIR-style receipt: TIN present, invoice/OR number present, date present, total present, line items sum to total", items: { type: "object", additionalProperties: false, required: ["check", "passed", "note"], properties: { check: str, passed: { type: "boolean" }, note: str } } },
+    confidence: { type: "number" }, notes: str,
   },
 };
 
-app.post("/api/receipts/extract", async (req, res) => {
+app.post("/api/receipts/extract", customer, async (req, res) => {
   try {
+    if (req.body.sample) {
+      const r = sampleReceipts[req.body.sample];
+      return r ? res.json({ ...r, source: "sample" }) : res.status(404).json({ error: "Unknown sample" });
+    }
     const f = req.body.file;
     if (!f) return res.status(400).json({ error: "No file" });
+    if (!live()) return res.status(503).json({ error: "The AI reader is offline in this demo. Try one of the sample receipts.", offline: true });
     const result = await askJson({
       system: "You extract data from receipts and invoices (Philippine context, amounts in PHP) accurately and never guess. Use 0 or empty string for anything not present on the document.",
       content: [fileBlock(f), { type: "text", text: "Extract this receipt. If it is not a receipt or invoice, set is_receipt false." }],
       schema: receiptSchema, effort: "low", max_tokens: 3000,
     });
-    res.json(result);
-  } catch (e) { fail(res, e); }
+    res.json({ ...result, source: "live" });
+  } catch (e) {
+    console.error(e);
+    res.status(503).json({ error: "The AI reader could not finish in time. Try again, or use a sample receipt.", offline: true });
+  }
 });
 
-// ---- Academy ----
-const productDocs = () =>
-  fs.readdirSync(path.join(root, "data/products")).sort()
-    .map((f) => `<document name="${f}">\n${read("data/products", f)}\n</document>`).join("\n\n");
-const personaText = (p) =>
-  `${p.name}, ${p.age}. ${p.tagline}.\nScenario: ${p.scenario}\nBackground: ${p.background}\nObjections you may raise: ${(p.objections || []).join("; ")}`;
-const personas = () => JSON.parse(read("data/personas.json"));
+// =====================================================================
+// Agent portal (CRM + assistant)
+// =====================================================================
+const agent = needs("agent");
 
-app.post("/api/coach/chat", async (req, res) => {
-  try {
-    const { mode, personaId, messages } = req.body;
-    let system;
-    if (mode === "qa") system = read("server/prompts/qa.md").replace("{{DOCS}}", productDocs());
-    else {
-      const persona = personas().find((p) => p.id === personaId) || personas()[0];
-      system = read("server/prompts/roleplay.md")
-        .replace("{{PERSONA}}", personaText(persona))
-        .replace("{{PRODUCT}}", read("data/products/personal-accident.md"));
-    }
-    res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-    res.flushHeaders();
-    const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
-    try {
-      await streamChat({ system, messages, onText: (t) => send({ t }), effort: "low" });
-      send({ done: true });
-    } catch (e) { console.error(e); send({ error: e.message }); }
-    res.end();
-  } catch (e) { fail(res, e); }
+app.get("/api/crm/leads", agent, (_req, res) => res.json({ leads: listLeads(), emails: sentEmails() }));
+app.patch("/api/crm/leads/:id", agent, (req, res) => {
+  const l = findLead(req.params.id);
+  if (!l) return res.status(404).json({ error: "Lead not found" });
+  const r = updateLead({ lead: l.id, ...req.body });
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ lead: l });
 });
+app.post("/api/crm/leads", agent, (req, res) => {
+  if (!String(req.body.name || "").trim()) return res.status(400).json({ error: "Name is required" });
+  const r = createLead(req.body);
+  res.json(r.result);
+});
+app.post("/api/crm/emails", agent, (req, res) => {
+  const r = sendEmail(req.body);
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json(r.result);
+});
+app.post("/api/crm/reset", agent, (_req, res) => { resetCrm(); res.json({ leads: listLeads(), emails: sentEmails() }); });
+app.get("/api/crm/suggestions", agent, (_req, res) => res.json(suggestions));
+app.get("/api/products", agent, (_req, res) => res.json(json("catalog.json")));
 
-const scoreSchema = {
-  type: "object", additionalProperties: false,
-  required: ["criteria", "objections", "strengths", "improvements", "rewrite", "summary"],
-  properties: {
-    criteria: {
-      type: "array",
-      items: { type: "object", additionalProperties: false, required: ["name", "score", "comment", "quote"], properties: { name: str, score: { type: "integer" }, comment: str, quote: str } },
-    },
-    objections: {
-      type: "array",
-      items: { type: "object", additionalProperties: false, required: ["objection", "handled", "comment"], properties: { objection: str, handled: { type: "boolean" }, comment: str } },
-    },
-    strengths: { type: "array", items: str },
-    improvements: { type: "array", items: str },
-    rewrite: { type: "object", additionalProperties: false, required: ["original", "better", "why"], properties: { original: str, better: str, why: str } },
-    summary: str,
-  },
-};
-
-app.post("/api/coach/score", async (req, res) => {
+app.post("/api/crm/chat", agent, async (req, res) => {
+  res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  res.flushHeaders();
+  const emit = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   try {
-    const { personaId, messages } = req.body;
-    const persona = personas().find((p) => p.id === personaId) || personas()[0];
-    const transcript = messages.map((m) => `${m.role === "user" ? "AGENT" : "CUSTOMER"}: ${m.content}`).join("\n");
-    const system = read("server/prompts/score.md")
-      .replace("{{PERSONA}}", personaText(persona))
-      .replace("{{PRODUCT}}", read("data/products/personal-accident.md"))
-      .replace("{{TRANSCRIPT}}", transcript);
-    const result = await askJson({
-      system, content: "Evaluate the agent now.", schema: scoreSchema, effort: "medium", max_tokens: 3500,
-    });
-    result.criteria = result.criteria.map((c) => ({ ...c, score: Math.max(0, Math.min(20, c.score)) }));
-    result.total = result.criteria.reduce((s, c) => s + c.score, 0);
-    res.json(result);
-  } catch (e) { fail(res, e); }
+    await runAssistant({ messages: req.body.messages || [], scenario: req.body.scenario, emit });
+  } catch (e) {
+    console.error(e);
+    emit({ t: "\n\nSomething went wrong on my side. Please try again." });
+    emit({ done: true, mode: "demo" });
+  }
+  res.end();
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Pioneer demo on http://localhost:${port} (model ${MODEL}${PASSCODE ? ", passcode on" : ""})`));
+app.listen(port, () => {
+  console.log(`Workforce Solution demo on http://localhost:${port} (model ${MODEL})`);
+  if (!status.configured) console.log("AI: ANTHROPIC_API_KEY is not set, running in demo mode (built-in demo items only)");
+  else if (status.forcedDemo) console.log("AI: DEMO_MODE=1, using built-in demo items only");
+  else checkKey().then(() => console.log(status.ok ? `AI: key OK, ${MODEL} answered in ${status.ms} ms` : `AI: key check FAILED (${status.error}); falling back to demo items`));
+});

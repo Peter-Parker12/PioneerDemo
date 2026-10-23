@@ -1,8 +1,10 @@
 services:
-  pioneer-demo:
+  workforce-demo:
     build: .
-    image: pioneer-demo:latest
+    image: workforce-solution-demo:latest
     ports:
       - "3894:3000"
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false   # without a key the app runs in demo mode (built-in demo items only)
     restart: unless-stopped

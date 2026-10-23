@@ -1,46 +1,47 @@
-# Pioneer Insurance (PH) - Interactive AI Demo
+# Workforce Solution - Interactive AI Demo
 
-Clickable demo of two use cases, running on the live Claude API:
+Two role-based portals, signed into with hardcoded demo accounts:
 
-1. **Claims workbench**: upload a claim pack, AI extracts the data, a rule engine scores fraud risk with reasons, the adjuster approves / requests documents / escalates. Includes "Try your own receipt" (any receipt is read live) and an **Approval rules** editor prebaked with illustrative motor-policy rules.
-2. **Agent academy**: Taglish roleplay with a customer persona (Marites, OFW spouse), scored debrief with quotes, product Q&A grounded in product sheets, progress dashboard.
+| Role | Email | Password | What it shows |
+|---|---|---|---|
+| Customer | `ramon@workforcesolution.demo` | `customer123` | Submit a motor claim: upload documents, watch the AI read them, review, submit, track status, add a repair receipt |
+| Sales agent | `angelo@workforcesolution.demo` | `agent123` | CRM lead list and product catalogue, plus a floating AI assistant that answers product questions and acts on the CRM (update leads, send emails, add notes, create leads) |
 
-All names, policies, claims and product terms are **fictional / illustrative**. Replace `data/products/*.md` and `data/rules_default.json` with Pioneer's real documents after the call.
+All names, policies, leads and product terms are **fictional**. Replace `data/products/*.md`, `data/catalog.json` and `data/leads.json` with real content later.
 
-## Run locally (no Docker)
-```bash
-cp .env.example .env        # put your ANTHROPIC_API_KEY in it
-export $(grep -v '^#' .env | xargs)
-npm install
-npm start                   # http://localhost:3000
-```
+## Demo mode and live AI
+Every built-in demo item works **without any API key**: the sample claim pack, the two sample receipts and the assistant's suggested prompts return canned results instantly while the browser plays the reading/typing animation. The header pill shows **Demo mode** or **Live AI**.
+
+With `ANTHROPIC_API_KEY` set, the server checks the key at startup (see the log line starting `AI:`) and also enables:
+- reading your own uploaded claim documents and receipts
+- free-form assistant chat with real tool use (it calls the CRM functions itself)
+
+If the key is missing or invalid, uploads show a message pointing at the sample items, and typed chat falls back to keyword-matched canned replies.
 
 ## Run with Docker
 ```bash
-cp .env.example .env        # edit: ANTHROPIC_API_KEY (and DEMO_PASSCODE)
+cp .env.example .env        # optional: add ANTHROPIC_API_KEY
 docker compose up --build -d
+# open http://localhost:3894
 ```
 
-## Public URL via Cloudflare Tunnel
+## Run locally
 ```bash
-cloudflared tunnel --url http://localhost:3000     # prints a https://*.trycloudflare.com URL
+npm install
+ANTHROPIC_API_KEY=sk-ant-... npm start     # http://localhost:3000 (omit the key for demo mode)
 ```
-Set `DEMO_PASSCODE` before sharing the URL: every click spends API credits.
 
 ## Layout
 ```
-server/index.js    Express API (extract, evaluate, narrate, receipts, coach chat/score)
-server/rules.js    Deterministic rule engine (drives the score, flags and recommendation)
-server/claude.js   Claude client (structured JSON output + streaming)
-server/prompts/    Roleplay, Q&A and scoring prompts
-data/              Policies, claim history, rules, personas, product sheets, sample PDFs
-public/            Vanilla JS frontend (views/claims.js, rules.js, academy.js)
-scripts/make-docs.js   Regenerates the sample PDFs (npm run make-docs, needs devDependencies)
+server/index.js       Express API: login, customer claims/receipts, agent CRM + chat
+server/claude.js      Claude client (timeouts, key check, JSON output)
+server/assistant.js   Assistant engines: live tool-use loop and scripted fallback (same event stream)
+server/crm.js         In-memory CRM store + the tools the assistant can call
+server/fixtures.js    Canned results for the demo items
+server/rules.js       Deterministic checks (document checklist, policy in force)
+public/views/         login.js, customer.js, agent.js (vanilla JS)
+data/                 policies, leads, catalogue, product sheets, sample PDFs
+demo-files/           the same sample PDFs, grouped for manual upload
 ```
-
-## How the claim score works
-Claude reads the documents into structured fields. `server/rules.js` evaluates the active ruleset (R01-R10) against those fields, the policy register and `claims_history.json`; each fired rule adds its weight to the 0-100 score and the strictest fired action sets the recommendation. Claude then writes the plain-language reasoning for the rules that fired. Changing a rule in the UI and clicking **Re-run** recomputes instantly.
-
-Reset the demo state (rules, claims, sessions) by clearing site data in the browser, or run in a fresh window.
 
 See `DEMO_SCRIPT.md` for the talk track.

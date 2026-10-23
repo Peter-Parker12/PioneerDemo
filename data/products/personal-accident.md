@@ -1,6 +1,6 @@
 # Family Protect Personal Accident Plan (illustrative product sheet)
 
-> Fictional product sheet for demo purposes. Replace with Pioneer's actual product documents.
+> Fictional product sheet for demo purposes. Replace with Workforce Solution's actual product documents.
 
 ## 1. Who can be covered
 - Principal member aged 18 to 65; spouse; children aged 3 months to 21 years (unmarried, dependent).

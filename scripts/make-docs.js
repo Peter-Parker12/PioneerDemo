@@ -50,7 +50,7 @@ function table(doc, head, body, widths) {
 make(path.join(claimDir, "1-claim-form.pdf"), (d) => {
   title(d, "MOTOR INSURANCE CLAIM FORM", "Illustrative sample - fictional data");
   rows(d, [
-    ["Policy No.", "PIO-MC-2026-004417"],
+    ["Policy No.", "WFS-MC-2026-004417"],
     ["Insured / Claimant", "Ramon A. Dela Cruz"],
     ["Address", "27 Mapang-akit St., Brgy. Culiat, Quezon City"],
     ["Mobile", "0917 555 0142"],
@@ -115,7 +115,7 @@ make(path.join(claimDir, "5-repair-estimate.pdf"), (d) => {
   rows(d, [
     ["Estimate No.", "EST-26-1187"], ["Date", "05 October 2026"],
     ["Customer", "Ramon A. Dela Cruz"], ["Vehicle / Plate", "2024 Toyota Vios 1.3 XLE / NCX 4821"],
-    ["Insurer / Policy", "Policy PIO-MC-2026-004417"],
+    ["Insurer / Policy", "Policy WFS-MC-2026-004417"],
   ]);
   d.moveDown(0.5);
   table(d, ["Description", "Amount (PHP)"], [

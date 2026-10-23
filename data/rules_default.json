@@ -1,5 +1,5 @@
 {
-  "version": "illustrative - based on typical Philippine motor policy wording; confirm with Pioneer",
+  "version": "illustrative - based on typical Philippine motor policy wording; confirm with Workforce Solution",
   "rules": [
     {"id":"R01","name":"Policy in force and premium paid","text":"The policy must be in force on the date of loss and the premium paid. Otherwise the claim is declined.","kind":"gate","enabled":true,"param":null,"action":"decline","weight":0},
     {"id":"R02","name":"Prompt notice of loss","text":"Loss should be reported within the allowed number of days after it occurred. Late notice goes to an adjuster.","kind":"gate","enabled":true,"param":{"key":"days","label":"Max days to report","value":30,"unit":"days"},"action":"review","weight":8},

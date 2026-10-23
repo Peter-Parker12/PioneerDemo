@@ -1,9 +1,9 @@
 {
-  "name": "pioneer-demo",
+  "name": "workforce-solution-demo",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Interactive AI demo for Pioneer Insurance: claims workbench + sales agent academy",
+  "description": "Workforce Solution demo: customer claims portal + agent CRM with AI assistant",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
