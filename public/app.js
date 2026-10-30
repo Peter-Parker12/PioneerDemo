@@ -8,7 +8,7 @@ export const php = (n) => "₱" + Math.round(Number(n) || 0).toLocaleString("en-
 export const fmtDate = (d) => (d ? new Date(d.slice(0, 10) + "T00:00:00").toLocaleDateString("en-PH", { day: "numeric", month: "short", year: "numeric" }) : "-");
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export const LOGO = `<svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 11l4 11 5-9 5 9 4-11" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+export const LOGO = `<svg class="logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0fa3a3"/><path d="M6 10l4.5 12L16 12l5.5 10L26 10" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 // ---------- session ----------
 const SKEY = "wfs_session";
@@ -102,6 +102,7 @@ export function md(src) {
 }
 
 // ---------- header ----------
+const initials = (n) => n.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 let ai = null;
 function paintHeader(sec) {
   const s = session.get();
@@ -110,14 +111,12 @@ function paintHeader(sec) {
   const nav = s.role === "customer"
     ? [["customer", "My account", "#/customer"], ["new", "Submit a claim", "#/customer/new"]]
     : [["leads", "Leads", "#/agent"], ["products", "Products", "#/agent/products"]];
-  const mode = ai?.live ? "Live AI" : "Demo mode";
-  const why = ai?.live ? "Claude is connected" : ai?.configured ? "Claude key check failed, showing built-in demo data" : "No API key set, showing built-in demo data";
   top.innerHTML = `
-    <a class="brand" href="${s.role === "customer" ? "#/customer" : "#/agent"}">${LOGO}<span>Workforce Solution</span><small>${s.role === "customer" ? "Customer portal" : "Agent workspace"}</small></a>
-    <nav id="nav" aria-label="Main">${nav.map(([k, l, h]) => `<a href="${h}" data-nav="${k}" class="${k === sec ? "on" : ""}" ${k === sec ? 'aria-current="page"' : ""}>${l}</a>`).join("")}</nav>
+    <a class="brand" href="${s.role === "customer" ? "#/customer" : "#/agent"}">${LOGO}<span>Workforce Solution</span><em>${s.role === "customer" ? "Customer portal" : "Agent workspace"}</em></a>
+    <nav id="nav">${nav.map(([k, l, h]) => `<a href="${h}" data-nav="${k}" class="${k === sec ? "on" : ""}">${l}</a>`).join("")}</nav>
     <div class="who">
-      <span class="mode" title="${esc(why)}">${mode}</span>
-      <span class="userbox">${esc(s.name)}</span>
+      <span class="pill ${ai?.live ? "live" : "demo"}" title="${esc(ai?.live ? "Claude is connected" : ai?.configured ? "Claude key check failed, showing built-in demo data" : "No API key set, showing built-in demo data")}"><i></i>${ai?.live ? "Live AI" : "Demo mode"}</span>
+      <div class="userbox"><div class="avatar-sm">${esc(initials(s.name))}</div><span>${esc(s.name)}</span></div>
       <button class="linkbtn" id="logout">Sign out</button>
     </div>`;
   $("#logout").onclick = () => { session.clear(); unmountAssistant(); location.hash = "#/login"; };
@@ -137,7 +136,6 @@ async function route() {
     location.hash = s.role === "customer" ? "#/customer" : "#/agent";
     return;
   }
-  app.innerHTML = `<div class="skel" style="width:30%"></div><div class="skel" style="width:60%"></div><div class="skel" style="width:45%"></div>`;
   try {
     if (s.role === "customer") {
       await customerBoot();
@@ -151,7 +149,7 @@ async function route() {
     if (parts[1] === "products") return renderProducts(app);
     return renderLeads(app);
   } catch (e) {
-    app.innerHTML = `<div class="empty">Could not load this page: ${esc(e.message)}. <a href="${location.hash || "#/"}">Try again</a></div>`;
+    app.innerHTML = `<div class="card empty">Could not load the page: ${esc(e.message)}</div>`;
   }
 }
 window.addEventListener("hashchange", route);
