@@ -19,8 +19,8 @@ const ACTION_RANK = { approve: 0, review: 1, escalate: 2, decline: 3 };
 export const ACTION_LABEL = {
   approve: "Fast-track approval",
   review: "Adjuster review",
-  escalate: "Escalate to SIU",
-  decline: "Decline (policy condition not met)",
+  escalate: "Escalate to manager",
+  decline: "Reject (policy condition not met)",
 };
 const REQUIRED_DOCS = [
   ["claim_form", "Claim form"],
@@ -29,6 +29,56 @@ const REQUIRED_DOCS = [
   ["police_report", "Police report"],
   ["repair_estimate", "Repair estimate"],
 ];
+
+// ---- custom rules: a condition on one claim measure, built by the manager ----
+export const FIELDS = [
+  { key: "estimate_total", label: "Repair estimate total", type: "number", unit: " PHP" },
+  { key: "days_since_inception", label: "Days from policy start to loss", type: "number", unit: " days" },
+  { key: "days_to_report", label: "Days from loss to report", type: "number", unit: " days" },
+  { key: "estimate_vs_typical_pct", label: "Estimate above typical repair cost", type: "number", unit: "%" },
+  { key: "claims_on_plate_365", label: "Other claims on this plate in 12 months", type: "number", unit: " claims" },
+  { key: "claims_at_shop_365", label: "Claims at this repair shop in 12 months", type: "number", unit: " claims" },
+  { key: "loss_hour", label: "Hour of the loss (0 to 23)", type: "number", unit: "" },
+  { key: "receipt_diff_pct", label: "Receipt total differs from estimate", type: "number", unit: "%" },
+  { key: "damage_category", label: "Damage category", type: "choice", options: ["front_collision", "rear_collision", "side_collision", "theft", "flood", "fire", "other"] },
+  { key: "injuries", label: "Customer reported injuries", type: "choice", options: ["Yes", "No"] },
+  { key: "police_report", label: "Customer reported to police", type: "choice", options: ["Yes", "No"] },
+  { key: "repair_shop", label: "Repair shop name", type: "text" },
+];
+export const OPS = { number: [">", ">=", "<", "<=", "="], choice: ["="], text: ["=", "contains"] };
+
+function metrics(claim, policy, typicalCost) {
+  const n = claim.normalized, inc = claim.incident || {}, estimate = Number(n.estimate_total) || 0;
+  const dr = days(n.loss_date, n.reported_date);
+  const inWindow = (h) => Math.abs(days(h.loss_date, n.loss_date)) <= 365;
+  const rc = claim.receipt;
+  return {
+    estimate_total: estimate,
+    days_since_inception: policy ? days(policy.inception, n.loss_date) : null,
+    days_to_report: Number.isNaN(dr) ? null : dr,
+    estimate_vs_typical_pct: typicalCost ? Math.round(((estimate - typicalCost) / typicalCost) * 100) : null,
+    claims_on_plate_365: history.filter((h) => norm(h.plate_no) === norm(n.plate_no) && inWindow(h)).length,
+    claims_at_shop_365: history.filter((h) => norm(h.shop) === norm(n.repair_shop) && inWindow(h)).length,
+    loss_hour: inc.loss_time ? Number(String(inc.loss_time).split(":")[0]) : null,
+    receipt_diff_pct: rc && rc.total > 0 && estimate > 0 ? Math.round((Math.abs(rc.total - estimate) / estimate) * 100) : null,
+    damage_category: n.damage_category || null,
+    injuries: inc.injuries ?? null,
+    police_report: inc.police ?? null,
+    repair_shop: n.repair_shop || null,
+  };
+}
+function customRule(r, m) {
+  const f = FIELDS.find((x) => x.key === r.cond?.field);
+  if (!f) return { status: "na", detail: "Unknown field" };
+  const actual = m[f.key];
+  if (actual === null || actual === undefined || actual === "") return { status: "na", detail: `${f.label} is not available for this claim` };
+  const want = r.cond.value, op = r.cond.op, u = f.unit || "";
+  let hit;
+  if (f.type === "number") { const a = Number(actual), w = Number(want); hit = op === ">" ? a > w : op === ">=" ? a >= w : op === "<" ? a < w : op === "<=" ? a <= w : a === w; }
+  else if (op === "contains") hit = String(actual).toLowerCase().includes(String(want).toLowerCase());
+  else hit = String(actual).toLowerCase() === String(want).toLowerCase();
+  return { status: hit ? "fail" : "pass", detail: `${f.label}: ${actual}${u} (rule fires when ${op} ${want}${u})` };
+}
 
 export function evaluate(claim, ruleset) {
   const n = claim.normalized;
@@ -47,6 +97,12 @@ export function evaluate(claim, ruleset) {
     const p = r.param?.value;
     const out = { id: r.id, name: r.name, text: r.text, action: r.action, weight: r.weight, param: r.param, kind: r.kind, status: "pass", detail: "" };
     if (!r.enabled) { out.status = "off"; out.detail = "Rule switched off"; results.push(out); continue; }
+    if (r.custom) {
+      const typical = typicalCosts[`${n.vehicle_model}|${n.damage_category}`];
+      Object.assign(out, { custom: true, cond: r.cond }, customRule(r, metrics(claim, policy, typical)));
+      results.push(out);
+      continue;
+    }
 
     switch (r.id) {
       case "R01": {

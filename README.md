@@ -4,8 +4,12 @@ Two role-based portals, signed into with hardcoded demo accounts:
 
 | Role | Email | Password | What it shows |
 |---|---|---|---|
-| Customer | `ramon@workforcesolution.demo` | `customer123` | Submit a motor claim: upload documents, watch the AI read them, review, submit, track status, add a repair receipt |
-| Sales agent | `angelo@workforcesolution.demo` | `agent123` | CRM lead list and product catalogue, plus a floating AI assistant that answers product questions and acts on the CRM (update leads, send emails, add notes, create leads) |
+| Customer | `ramon@workforcesolution.demo` | `customer123` | Report an incident, attach documents with upload progress, watch the AI read them, submit, track status, add a repair receipt |
+| Sales agent | `angelo@workforcesolution.demo` | `agent123` | CRM workspace: lead list, selected lead details, and an AI assistant panel docked on the right that answers product questions and updates leads, sends emails, adds notes |
+| Claim executive | `maricar@workforcesolution.demo` | `executive123` | Queue of submitted claims with an AI fraud score, the rules that fired, and suggested actions: Approve, Reject, Escalate to manager, Request documents |
+| Claim manager | `elena@workforcesolution.demo` | `manager123` | Case oversight (queue, team workload, highlighted escalations with the executive's note) and Rule management (view, edit, add, delete and publish fraud rules; open claims are re-scored) |
+
+Claims are shared across roles on the server (in memory, reset on restart): what the customer submits appears in the executive's queue, the executive's decision updates the customer's status, and the manager's rule changes re-score open claims.
 
 All names, policies, leads and product terms are **fictional**. Replace `data/products/*.md`, `data/catalog.json` and `data/leads.json` with real content later.
 

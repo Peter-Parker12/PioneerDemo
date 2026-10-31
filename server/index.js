@@ -3,8 +3,9 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { askJson, MODEL, live, status, checkKey } from "./claude.js";
-import { evaluate, defaultRules, policies } from "./rules.js";
+import { evaluate, defaultRules, policies, FIELDS, OPS } from "./rules.js";
 import { heroClaim, receipts as sampleReceipts, SAMPLE_CLAIM_PACK } from "./fixtures.js";
+import * as store from "./claims.js";
 import { listLeads, sentEmails, updateLead, resetCrm, findLead, createLead, sendEmail } from "./crm.js";
 import { runAssistant, suggestions } from "./assistant.js";
 
@@ -18,9 +19,16 @@ app.use(express.json({ limit: "40mb" }));
 const ACCOUNTS = [
   { email: "ramon@workforcesolution.demo", password: "customer123", role: "customer", name: "Ramon A. Dela Cruz", token: "demo-customer" },
   { email: "angelo@workforcesolution.demo", password: "agent123", role: "agent", name: "Angelo Reyes", token: "demo-agent" },
+  { email: "maricar@workforcesolution.demo", password: "executive123", role: "executive", name: "Maricar Ocampo", token: "demo-executive" },
+  { email: "elena@workforcesolution.demo", password: "manager123", role: "manager", name: "Elena Marquez", token: "demo-manager" },
 ];
 const byToken = (t) => ACCOUNTS.find((a) => a.token === t);
-const needs = (role) => (req, res, next) => (byToken(req.get("x-token"))?.role === role ? next() : res.status(401).json({ error: "Please sign in again" }));
+const needs = (...roles) => (req, res, next) => {
+  const a = byToken(req.get("x-token"));
+  if (!a || !roles.includes(a.role)) return res.status(401).json({ error: "Please sign in again" });
+  req.user = a;
+  next();
+};
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, ai: { ...status, live: live() } }));
 app.post("/api/login", (req, res) => {
@@ -32,6 +40,12 @@ app.post("/api/login", (req, res) => {
 // ---- static ----
 app.use(express.static(path.join(root, "public")));
 app.use("/files/claim", express.static(path.join(root, "data/claims/hero-claim")));
+const uploads = new Map(); // "CLM-id/filename" -> { mediaType, buf }
+app.get("/files/uploads/:id/:name", (req, res) => {
+  const u = uploads.get(req.params.id + "/" + req.params.name);
+  if (!u) return res.status(404).end();
+  res.type(u.mediaType).send(u.buf);
+});
 app.use("/files/receipts", express.static(path.join(root, "data/receipts")));
 
 const fail = (res, e) => {
@@ -119,6 +133,35 @@ app.post("/api/claims/extract", customer, async (req, res) => {
   }
 });
 
+// Claims the customer has submitted live on the server, so executives and managers see them too.
+app.get("/api/customer/claims", customer, (_req, res) => {
+  res.json(store.allClaims().filter((c) => c.source === "customer").sort((a, b) => b.id.localeCompare(a.id)).map(store.customerSummary));
+});
+app.get("/api/customer/claims/:id", customer, (req, res) => {
+  const c = store.getClaim(req.params.id);
+  if (!c || c.source !== "customer") return res.status(404).json({ error: "Claim not found" });
+  res.json(store.customerView(c));
+});
+app.post("/api/customer/claims", customer, (req, res) => {
+  try {
+    const next = 1042 + store.allClaims().filter((c) => c.source === "customer").length;
+    const id = "CLM-2026-" + next;
+    const saved = (req.body.files || []).map((f) => {
+      if (f.sample) return { name: f.name, size: f.size, slot: f.slot, url: "/files/claim/" + f.name };
+      uploads.set(id + "/" + f.name, { mediaType: f.mediaType || "application/octet-stream", buf: Buffer.from(f.data || "", "base64") });
+      return { name: f.name, size: f.size, slot: f.slot, url: "/files/uploads/" + id + "/" + encodeURIComponent(f.name) };
+    });
+    const c = store.createCustomerClaim(req.body, saved);
+    res.json(store.customerView(c));
+  } catch (e) { fail(res, e); }
+});
+app.post("/api/customer/claims/:id/receipt", customer, (req, res) => {
+  const c = store.getClaim(req.params.id);
+  if (!c || c.source !== "customer") return res.status(404).json({ error: "Claim not found" });
+  store.attachReceipt(c, req.body.receipt);
+  res.json(store.customerView(c));
+});
+
 // Customer-safe view of the internal checks: which documents are missing and whether the policy was in force.
 app.post("/api/claims/check", customer, (req, res) => {
   try {
@@ -165,6 +208,61 @@ app.post("/api/receipts/extract", customer, async (req, res) => {
     console.error(e);
     res.status(503).json({ error: "The AI reader could not finish in time. Try again, or use a sample receipt.", offline: true });
   }
+});
+
+// =====================================================================
+// Claim executive and claim manager
+// =====================================================================
+const staff = needs("executive", "manager");
+const detail = (c) => ({ ...store.listRow(c), normalized: c.normalized, fields: c.fields, documents: c.documents, docFiles: c.docFiles, checklist: c.checklist, receipt: c.receipt, incident: c.incident, evaluation: c.evaluation, narrative: c.narrative, history: c.history, escalation: c.escalation, decision: c.decision });
+
+app.get("/api/claims/:id", staff, (req, res) => {
+  const c = store.getClaim(req.params.id);
+  return c ? res.json(detail(c)) : res.status(404).json({ error: "Claim not found" });
+});
+app.post("/api/claims/:id/decision", staff, (req, res) => {
+  const c = store.getClaim(req.params.id);
+  if (!c) return res.status(404).json({ error: "Claim not found" });
+  if (req.user.role === "executive" && c.assignee !== req.user.name) return res.status(403).json({ error: "This claim is assigned to " + c.assignee });
+  const err = store.decide(c, req.user.name, req.user.role, req.body);
+  return err ? res.status(400).json({ error: err }) : res.json(detail(c));
+});
+app.get("/api/executive/claims", needs("executive"), (req, res) => {
+  res.json(store.allClaims().filter((c) => c.assignee === req.user.name).sort((a, b) => b.received.localeCompare(a.received) || b.id.localeCompare(a.id)).map(store.listRow));
+});
+app.get("/api/manager/overview", needs("manager"), (_req, res) => {
+  const rows = store.allClaims().sort((a, b) => b.received.localeCompare(a.received) || b.id.localeCompare(a.id)).map(store.listRow);
+  const people = store.EXECUTIVES.map((e) => {
+    const mine = rows.filter((r) => r.assignee === e.name);
+    return { name: e.name, open: mine.filter((r) => ["New", "In review", "Documents requested"].includes(r.status)).length, escalated: mine.filter((r) => r.status === "Escalated").length, decided: mine.filter((r) => ["Approved", "Rejected", "Paid"].includes(r.status)).length, total: mine.length };
+  });
+  res.json({ rows, people, manager: store.MANAGER });
+});
+app.get("/api/manager/rules", needs("manager"), (_req, res) => res.json({ ...store.ruleState, defaults: defaultRules.rules, fields: FIELDS, ops: OPS }));
+app.put("/api/manager/rules", needs("manager"), (req, res) => {
+  const rules = req.body.rules;
+  const ACTIONS = ["approve", "review", "escalate", "decline"];
+  if (!Array.isArray(rules)) return res.status(400).json({ error: "Rules are required" });
+  for (const r of rules) {
+    if (!r.id || !String(r.name || "").trim()) return res.status(400).json({ error: "Every rule needs a name" });
+    if (!ACTIONS.includes(r.action)) return res.status(400).json({ error: `${r.id}: unknown action` });
+    if (!(Number(r.weight) >= 0 && Number(r.weight) <= 100)) return res.status(400).json({ error: `${r.id}: weight must be between 0 and 100` });
+    if (r.custom) {
+      const f = FIELDS.find((x) => x.key === r.cond?.field);
+      if (!f) return res.status(400).json({ error: `${r.id}: pick a field for the condition` });
+      if (!OPS[f.type].includes(r.cond.op)) return res.status(400).json({ error: `${r.id}: that comparison does not fit ${f.label}` });
+      if (String(r.cond.value ?? "").trim() === "" || (f.type === "number" && Number.isNaN(Number(r.cond.value)))) return res.status(400).json({ error: `${r.id}: enter a value for the condition` });
+    }
+    if (r.param && !(Number(r.param.value) >= 0)) return res.status(400).json({ error: `${r.id}: ${r.param.label} must be a number` });
+  }
+  if (new Set(rules.map((r) => r.id)).size !== rules.length) return res.status(400).json({ error: "Rule ids must be unique" });
+  const clean = rules.map((r) => ({ ...r, enabled: !!r.enabled, weight: Number(r.weight), ...(r.param ? { param: { ...r.param, value: Number(r.param.value) } } : {}) }));
+  const out = store.publishRules(clean, String(req.body.note || "").slice(0, 200), req.user.name);
+  res.json({ ...out, state: { ...store.ruleState } });
+});
+app.post("/api/manager/rules/reset", needs("manager"), (_req, res) => {
+  const out = store.publishRules(structuredClone(defaultRules.rules), "Reset to default rules", "Elena Marquez");
+  res.json({ ...out, state: { ...store.ruleState } });
 });
 
 // =====================================================================

@@ -1,6 +1,7 @@
 // Generates the fictional sample PDFs (hero claim pack + sample receipts).
 // Run: npm run make-docs   (output is committed, so this is only needed to regenerate)
 import PDFDocument from "pdfkit";
+import { taras } from "./taras.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -10,8 +11,8 @@ const claimDir = path.join(root, "data/claims/hero-claim");
 const receiptDir = path.join(root, "data/receipts");
 const php = (n) => "PHP " + n.toLocaleString("en-PH", { minimumFractionDigits: 2 });
 
-function make(file, draw) {
-  const doc = new PDFDocument({ size: "A4", margin: 50 });
+function make(file, draw, margin = 50) {
+  const doc = new PDFDocument({ size: "A4", margin });
   doc.pipe(fs.createWriteStream(file));
   draw(doc);
   doc.end();
@@ -93,21 +94,23 @@ make(path.join(claimDir, "3-drivers-license.pdf"), (d) => {
   ]);
 });
 
-make(path.join(claimDir, "4-police-report.pdf"), (d) => {
-  title(d, "PHILIPPINE NATIONAL POLICE - QUEZON CITY POLICE DISTRICT", "Station 3 - Traffic Sector - Certified True Copy of Blotter (Illustrative sample)");
-  rows(d, [
-    ["Blotter entry no.", "2026-10-3381"], ["Date reported", "03 October 2026, 8:15 AM"],
-    ["Date / time of incident", "02 October 2026, approx. 9:40 PM"],
-    ["Place of incident", "Commonwealth Ave. cor. Tandang Sora Ave., Quezon City"],
-    ["Complainant", "Ramon A. Dela Cruz"], ["Vehicle", "Toyota Vios, plate NCX 4821"],
-    ["Nature", "Vehicular accident - damage to property (self-inflicted, no third party)"],
-    ["Damage noted", "Front bumper, right headlamp, hood"], ["Injuries", "None"],
-  ]);
-  d.moveDown(0.5).font("Helvetica").fontSize(10).text(
-    "Complainant states that a motorcycle swerved into his lane, causing him to hit the concrete island. The motorcycle rider left the scene and could not be identified.",
-    { width: 495 });
-  d.moveDown(2).text("Desk Officer: PSSg. M. Villanueva");
-});
+make(path.join(claimDir, "4-police-report.pdf"), (d) => taras(d, {
+  reportNo: "2026-10-3381", station: "QCPD Station 3 (Batasan)", region: "NCRPO", date: "03 Oct 2026",
+  vehicles: 2, driverCas: 0, paxCas: 0, pedCas: 0, severity: 4,
+  month: "10", day: "02", year: "2026", dateLong: "October 2, 2026", weekday: "Friday", time: "2140H",
+  junction: 3, control: 6, collision: 6, movement: 2, separation: 1, weather: 1, light: 3, roadChar: 1, surface: 1, surfaceType: 1,
+  cause: 4, roadClass: 1, repairs: 2, hitRun: 1, locType: 1,
+  place: "Brgy. Culiat, Quezon City", road: "Commonwealth Avenue (eastbound)", landmark1: "Tandang Sora flyover, 60 m west",
+  landmark2: "Philcoa, 1.4 km east", road2: "Tandang Sora Avenue",
+  v1: { plate: "NCX 4821", driver: "DELA CRUZ, RAMON ABAD", owner: "Ramon A. Dela Cruz, 27 Mapang-akit St., Brgy. Culiat, Quezon City", engine: "2NR-8847221", chassis: "MHFBW9F30R0044182", license: "N03-26-123456", licenseType: "Non-professional (restr. A, A1, B, B1), exp. 14 Mar 2031", insurance: "Workforce Solution, Policy WFS-MC-2026-004417", orcr: "OR 7741920318 / CR 283910475", make: "Toyota", model: "Vios 1.3 XLE / 2024", sex: "M", age: "41", injury: "4 - Not injured", hospital: "-", type: "5 - Car", maneuver: "8 - Going ahead (evasive turn to the right)", loading: "1 - Legal", direction: "3 - East", defect: "1 - None", damage: "2 - Front (bumper, right headlamp, hood)", error: "1 - None", alcohol: "2 - Not suspected", belt: "1 - Worn" },
+  v2: { plate: "UNKNOWN", driver: "UNIDENTIFIED RIDER", owner: "Unknown", engine: "Unknown", chassis: "Unknown", license: "-", licenseType: "-", insurance: "-", orcr: "-", make: "Unknown", model: "Motorcycle, not identified", sex: "Unknown", age: "Unknown", injury: "Not determined", hospital: "-", type: "3 - Motorcycle", maneuver: "5 - Merging (swerved into the lane of V1)", loading: "Not determined", direction: "3 - East", defect: "Not determined", damage: "None observed", error: "Not determined", alcohol: "Not determined", belt: "Not determined" },
+  description: "On 02 October 2026 at about 2140H, Vehicle 1, a silver Toyota Vios plate NCX 4821 driven by Ramon A. Dela Cruz, was travelling eastbound on Commonwealth Avenue near its intersection with Tandang Sora Avenue. A motorcycle coming from behind swerved into the driver's lane. The driver braked and steered to the right to avoid it, and the front of the vehicle hit the concrete island. The motorcycle did not stop and left the scene toward Philcoa. Damage to Vehicle 1: front bumper, right headlamp and hood. No injuries. The scene was lit and the road dry. No sign of alcohol on the driver.",
+  statement1: "I was driving east on Commonwealth Avenue. A motorcycle suddenly swerved into my lane. I braked and turned right to avoid it and my car hit the concrete island. The rider did not stop. I reported it to the station the next morning.",
+  action: "Incident entered in the station blotter on 03 October 2026, 0815H, entry no. 2026-10-3381. Complainant submitted photographs of the damage. Request for CCTV footage sent to Barangay Culiat.",
+  recommendation: "Follow up CCTV along Commonwealth Avenue to identify the motorcycle. Issue a certified true copy of this report to the insurer upon request.",
+  status: "Under investigation. Hit and run by an unidentified motorcycle rider; no third-party claim filed.",
+  investigator: "PO3 RICARDO D. MANALO", supervisor: "PCPT ALMA R. TORRES",
+}, 24));
 
 make(path.join(claimDir, "5-repair-estimate.pdf"), (d) => {
   title(d, "BONIFACIO AUTO WORKS", "Collision repair and repainting - 118 Aurora Blvd., Quezon City - TIN 214-889-307-000 VAT");

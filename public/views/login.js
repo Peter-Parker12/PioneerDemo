@@ -4,6 +4,8 @@ import { $, api, session, esc, LOGO } from "/app.js";
 const ACCOUNTS = [
   { role: "customer", label: "Customer", name: "Ramon A. Dela Cruz", blurb: "Submit a motor claim and track it", email: "ramon@workforcesolution.demo", password: "customer123" },
   { role: "agent", label: "Sales agent", name: "Angelo Reyes", blurb: "CRM leads and the AI assistant", email: "angelo@workforcesolution.demo", password: "agent123" },
+  { role: "executive", label: "Claim executive", name: "Maricar Ocampo", blurb: "Review submitted claims, AI risk score and suggested actions", email: "maricar@workforcesolution.demo", password: "executive123" },
+  { role: "manager", label: "Claim manager", name: "Elena Marquez", blurb: "Case oversight, escalations and fraud rule management", email: "elena@workforcesolution.demo", password: "manager123" },
 ];
 
 export function renderLogin(root, onDone) {
@@ -39,7 +41,7 @@ export function renderLogin(root, onDone) {
       const s = await api("/login", { email: email.value, password: pw.value });
       session.set(s);
       root.style.maxWidth = ""; root.style.padding = "";
-      location.hash = s.role === "customer" ? "#/customer" : "#/agent";
+      location.hash = "#/" + s.role;
       onDone?.();
     } catch (ex) { err.textContent = ex.message; }
   };

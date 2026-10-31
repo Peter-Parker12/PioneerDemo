@@ -1,5 +1,8 @@
 import { renderLogin } from "/views/login.js";
 import { renderCustomerHome, renderNewClaim, renderClaim, customerBoot } from "/views/customer.js";
+import { renderReview } from "/views/review.js";
+import { renderQueue } from "/views/executive.js";
+import { renderOverview, renderRules } from "/views/manager.js";
 import { renderLeads, renderProducts, mountAssistant, unmountAssistant } from "/views/agent.js";
 
 export const $ = (s, r = document) => r.querySelector(s);
@@ -108,11 +111,16 @@ function paintHeader(sec) {
   const s = session.get();
   const top = $("#top");
   if (!s) { top.innerHTML = `<a class="brand" href="#/login">${LOGO}<span>Workforce Solution</span></a>`; return; }
-  const nav = s.role === "customer"
-    ? [["customer", "My account", "#/customer"], ["new", "Submit a claim", "#/customer/new"]]
-    : [["leads", "Leads", "#/agent"], ["products", "Products", "#/agent/products"]];
+  const NAV = {
+    customer: [["customer", "My account", "#/customer"], ["new", "Submit a claim", "#/customer/new"]],
+    agent: [["leads", "Leads", "#/agent"], ["products", "Products", "#/agent/products"]],
+    executive: [["queue", "Claims queue", "#/executive"]],
+    manager: [["overview", "Case oversight", "#/manager"], ["rules", "Rule management", "#/manager/rules"]],
+  };
+  const PORTAL = { customer: "Customer portal", agent: "Agent workspace", executive: "Claims workspace", manager: "Manager workspace" };
+  const nav = NAV[s.role];
   top.innerHTML = `
-    <a class="brand" href="${s.role === "customer" ? "#/customer" : "#/agent"}">${LOGO}<span>Workforce Solution</span><em>${s.role === "customer" ? "Customer portal" : "Agent workspace"}</em></a>
+    <a class="brand" href="#/${s.role}">${LOGO}<span>Workforce Solution</span><em>${PORTAL[s.role]}</em></a>
     <nav id="nav">${nav.map(([k, l, h]) => `<a href="${h}" data-nav="${k}" class="${k === sec ? "on" : ""}">${l}</a>`).join("")}</nav>
     <div class="who">
       <span class="pill ${ai?.live ? "live" : "demo"}" title="${esc(ai?.live ? "Claude is connected" : ai?.configured ? "Claude key check failed, showing built-in demo data" : "No API key set, showing built-in demo data")}"><i></i>${ai?.live ? "Live AI" : "Demo mode"}</span>
@@ -133,7 +141,7 @@ async function route() {
   app.style.maxWidth = ""; app.style.padding = "";
   if (!s) { unmountAssistant(); paintHeader(); return renderLogin(app, () => { ai = null; refreshAi().then(route); }); }
   if (area !== s.role) {
-    location.hash = s.role === "customer" ? "#/customer" : "#/agent";
+    location.hash = "#/" + s.role;
     return;
   }
   try {
@@ -144,10 +152,19 @@ async function route() {
       if (parts[1] === "claim" && parts[2]) return renderClaim(app, parts[2]);
       return renderCustomerHome(app);
     }
+    if (s.role === "executive") {
+      paintHeader("queue");
+      return parts[1] === "claim" && parts[2] ? renderReview(app, parts[2], "executive") : renderQueue(app);
+    }
+    if (s.role === "manager") {
+      paintHeader(parts[1] === "rules" ? "rules" : "overview");
+      if (parts[1] === "claim" && parts[2]) return renderReview(app, parts[2], "manager");
+      return parts[1] === "rules" ? renderRules(app) : renderOverview(app);
+    }
     mountAssistant();
     paintHeader(parts[1] === "products" ? "products" : "leads");
     if (parts[1] === "products") return renderProducts(app);
-    return renderLeads(app);
+    return renderLeads(app, parts[1]);
   } catch (e) {
     app.innerHTML = `<div class="card empty">Could not load the page: ${esc(e.message)}</div>`;
   }
