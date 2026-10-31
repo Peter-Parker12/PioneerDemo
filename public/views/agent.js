@@ -18,6 +18,42 @@ const dueLabel = (l) => {
   return `<span class="due ${cls}">${l.next_due === TODAY ? "Due today" : l.next_due < TODAY ? "Overdue" : "Due " + fmtDate(l.next_due)}</span>`;
 };
 
+// ---------- pane resizing: drag a divider, use arrow keys, or double-click to reset; widths are remembered ----------
+const PANES = { list: { v: "--list-w", def: 320, min: 220, max: 520, dir: 1 }, dock: { v: "--dock-w", def: 380, min: 300, max: 720, dir: -1 } };
+const paneKey = (n) => "wfs_pane_" + n;
+function setPane(n, px, save = true) {
+  const p = PANES[n];
+  const w = Math.max(p.min, Math.min(p.max, Math.round(px)));
+  document.documentElement.style.setProperty(p.v, w + "px");
+  if (save) { try { localStorage.setItem(paneKey(n), String(w)); } catch {} }
+  return w;
+}
+export function restorePanes() {
+  for (const n of Object.keys(PANES)) { try { const v = Number(localStorage.getItem(paneKey(n))); if (v) setPane(n, v, false); } catch {} }
+}
+function resizable(el, n) {
+  const p = PANES[n];
+  const cur = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue(p.v)) || p.def;
+  el.onpointerdown = (e) => {
+    e.preventDefault();
+    const x0 = e.clientX, w0 = cur();
+    el.setPointerCapture?.(e.pointerId);
+    el.classList.add("drag"); document.body.classList.add("resizing");
+    el.onpointermove = (ev) => setPane(n, w0 + (ev.clientX - x0) * p.dir, false);
+    el.onpointerup = el.onpointercancel = () => {
+      el.classList.remove("drag"); document.body.classList.remove("resizing");
+      el.onpointermove = el.onpointerup = el.onpointercancel = null;
+      setPane(n, cur());
+    };
+  };
+  el.onkeydown = (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    setPane(n, cur() + (e.key === "ArrowRight" ? 16 : -16) * p.dir);
+  };
+  el.ondblclick = () => setPane(n, p.def);
+}
+
 // ============================ LEADS WORKSPACE: list | details ============================
 export async function renderLeads(root, selectedId) {
   await refresh();
@@ -35,9 +71,12 @@ export async function renderLeads(root, selectedId) {
         <select id="stagef" aria-label="Filter by stage" style="margin:8px 0 6px"><option value="All">All stages</option>${STAGES.map((s) => `<option ${ui.stage === s ? "selected" : ""}>${s}</option>`).join("")}</select>
         <div id="items" role="listbox"></div>
       </aside>
+      <div class="resizer" id="rs-list" role="separator" aria-orientation="vertical" aria-label="Resize the lead list" title="Drag to resize, double-click to reset" tabindex="0"></div>
       <section class="detail" id="detail" aria-live="polite"></section>
     </div>`;
 
+  restorePanes();
+  resizable($("#rs-list"), "list");
   const paintList = () => {
     const open = crm.leads.filter(isOpen);
     const due = open.filter((l) => l.next_due && l.next_due <= TODAY).length;
@@ -177,12 +216,15 @@ export async function mountAssistant() {
   try { chat.sugg = await api("/crm/suggestions"); } catch { chat.sugg = []; }
   $("#widget-root").innerHTML = `
     <aside class="dock" id="dock" aria-label="Assistant">
+      <div class="resizer dock-rs" id="rs-dock" role="separator" aria-orientation="vertical" aria-label="Resize the assistant" title="Drag to resize, double-click to reset" tabindex="0"></div>
       <div class="dock-head"><div><b>WS Assistant</b><small>Product answers and CRM actions</small></div><button class="x" id="cx" aria-label="Hide the assistant">×</button></div>
       <div class="msgs" id="msgs" aria-live="polite"></div>
       <div class="chat-sugg" id="sugg"></div>
       <form class="composer" id="cf"><input type="text" id="ci" placeholder="Ask about a product, or tell me what to do" aria-label="Message" autocomplete="off"><button class="btn brand" id="cs">Send</button></form>
     </aside>
     <button class="dock-tab" id="tab" aria-label="Show the assistant">${BOT_ICON}<span>Assistant</span></button>`;
+  restorePanes();
+  resizable($("#rs-dock"), "dock");
   $("#cx").onclick = () => toggle(false);
   $("#tab").onclick = () => toggle(true);
   $("#cf").onsubmit = (e) => { e.preventDefault(); const v = $("#ci").value.trim(); if (v) send(v); };
