@@ -305,3 +305,6 @@ body.vwr-open{overflow:hidden}
 .vwr-native{width:min(1100px,100%);height:calc(100vh - 140px);border:0;background:#fff}
 .vwr-msg{color:#dbe4f0;padding:40px}
 @media(max-width:60rem){.vwr-title b{max-width:60vw}.vwr-bar{gap:8px}.vwr-body{padding:12px}.vbtn.wide{padding:0 8px;font-size:12px}}
+
+.docrow{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:10px 0;border-top:1px solid var(--line)}
+.docrow:first-of-type{border-top:0}

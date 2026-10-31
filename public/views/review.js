@@ -15,6 +15,7 @@ const gauge = (s) => {
 };
 const DOC_LABEL = { claim_form: "Claim form", or_cr: "OR/CR", drivers_license: "Driver's license", police_report: "Police report", repair_estimate: "Repair estimate" };
 const docLabel = (c, d) => d.slot || DOC_LABEL[c.documents?.find((x) => x.filename === d.name)?.doc_type] || d.name;
+const sizeOf = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
 const when = (iso) => new Date(iso).toLocaleString("en-PH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 const ACTIONS = {
@@ -68,6 +69,15 @@ export async function renderReview(root, id, role, view = {}) {
         </div>
 
         <div class="card">
+          <h2>Attached documents <span class="muted small">${c.docFiles.length} file${c.docFiles.length === 1 ? "" : "s"}</span></h2>
+          ${c.docFiles.length ? c.docFiles.map((d, i) => {
+            const sum = c.documents?.find((x) => x.filename === d.name)?.summary;
+            return `<div class="docrow"><div style="min-width:0"><b>${esc(docLabel(c, d))}</b><div class="small muted">${esc(d.name)}${d.size ? ", " + sizeOf(d.size) : ""}</div>${sum ? `<div class="small">${esc(sum)}</div>` : ""}</div>
+              <button class="btn sm" data-view="${i}" aria-label="View ${esc(docLabel(c, d))}">View</button></div>`;
+          }).join("") : `<div class="muted">No documents are on file for this claim in the demo.</div>`}
+        </div>
+
+        <div class="card">
           <h2>Why this score</h2>
           ${fired.length ? fired.map((r) => `<div class="flag ${r.weight >= 20 || ["escalate", "decline"].includes(r.action) ? "red" : "amber"}">
             <div class="rid">${r.id}</div><div style="flex:1"><b>${esc(r.name)}</b> <span class="muted small">+${r.weight} pts</span>
@@ -113,7 +123,9 @@ export async function renderReview(root, id, role, view = {}) {
       </div>
     </div>`;
 
-  root.querySelector("[data-viewer]")?.addEventListener("click", () => openViewer(c.docFiles.map((d) => ({ name: d.name, url: d.url, label: docLabel(c, d) })), docIdx));
+  const viewerDocs = () => c.docFiles.map((d) => ({ name: d.name, url: d.url, label: docLabel(c, d) }));
+  root.querySelector("[data-viewer]")?.addEventListener("click", () => openViewer(viewerDocs(), docIdx));
+  root.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => openViewer(viewerDocs(), +b.dataset.view)));
   root.querySelectorAll("[data-doc]").forEach((b) => (b.onclick = () => renderReview(root, id, role, { claim: c, doc: +b.dataset.doc })));
   root.querySelectorAll("[data-field]").forEach((tr) => (tr.onclick = () => {
     const f = c.fields[+tr.dataset.field];
