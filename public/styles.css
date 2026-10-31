@@ -276,3 +276,32 @@ tr.new td{background:#fffaf0}
 .dock-rs{position:absolute;top:0;bottom:0;left:-6px;width:12px;z-index:2}
 body.resizing{cursor:col-resize;user-select:none}
 body.resizing iframe{pointer-events:none}
+
+/* ---------- clickable preview + full-screen viewer ---------- */
+.preview{position:relative}
+.preview iframe{display:block}
+.preview-open{position:absolute;inset:0;border:0;background:transparent;cursor:zoom-in;display:flex;align-items:flex-start;justify-content:flex-end;padding:10px;border-radius:8px}
+.preview-open .chip{background:var(--navy);color:#fff;opacity:.92;box-shadow:0 2px 8px rgba(13,43,69,.3)}
+.preview-open:hover{background:rgba(13,43,69,.04)}
+.preview-open:focus-visible{outline:3px solid var(--brand);outline-offset:-3px}
+body.vwr-open{overflow:hidden}
+.vwr{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;background:#1b2430}
+.vwr-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;background:var(--navy);color:#fff;border-bottom:1px solid rgba(255,255,255,.12)}
+.vwr-title{display:flex;flex-direction:column;min-width:0;margin-right:auto}
+.vwr-title b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:36vw}
+.vwr-title .muted{color:#aebdd0}
+.vwr-group{display:flex;align-items:center;gap:6px}
+.vwr-group[hidden]{display:none}
+.vbtn{font:inherit;font-weight:600;min-width:38px;height:38px;padding:0 12px;border:1px solid rgba(255,255,255,.25);border-radius:8px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer}
+.vbtn:hover:not(:disabled){background:rgba(255,255,255,.2)}
+.vbtn:disabled{opacity:.4;cursor:not-allowed}
+.vbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.vbtn.close{font-size:22px;padding:0 14px}
+.vcount{min-width:56px;text-align:center;font-variant-numeric:tabular-nums}
+.vwr-body{flex:1;overflow:auto;padding:24px;outline:none}
+.vwr-pages{display:flex;flex-direction:column;align-items:center;gap:16px;min-width:min-content}
+.vwr-page canvas{display:block;background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+.vwr-img{display:block;background:#fff;box-shadow:0 4px 18px rgba(0,0,0,.4);max-width:none}
+.vwr-native{width:min(1100px,100%);height:calc(100vh - 140px);border:0;background:#fff}
+.vwr-msg{color:#dbe4f0;padding:40px}
+@media(max-width:60rem){.vwr-title b{max-width:60vw}.vwr-bar{gap:8px}.vwr-body{padding:12px}.vbtn.wide{padding:0 8px;font-size:12px}}

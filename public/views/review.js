@@ -1,4 +1,5 @@
 // Claim review screen shared by the claim executive and the claim manager.
+import { openViewer } from "/views/viewer.js";
 import { $, esc, php, fmtDate, api, toast, modal } from "/app.js";
 
 export const statusChip = (s) => {
@@ -49,7 +50,7 @@ export async function renderReview(root, id, role, view = {}) {
     <div class="${c.docFiles.length ? "split" : ""}">
       ${c.docFiles.length ? `<div class="viewer card">
         <div class="tabs">${c.docFiles.map((d, i) => `<button class="tab ${i === docIdx ? "on" : ""}" data-doc="${i}">${esc(docLabel(c, d))}</button>`).join("")}</div>
-        ${doc?.url ? `<iframe src="${doc.url}#toolbar=0&navpanes=0" title="${esc(doc.name)}"></iframe>` : ""}
+        ${doc?.url ? `<div class="preview"><iframe src="${doc.url}#toolbar=0&navpanes=0" title="${esc(doc.name)}" tabindex="-1"></iframe><button class="preview-open" data-viewer aria-label="Open ${esc(docLabel(c, doc))} in a larger viewer"><span class="chip">Click to enlarge</span></button></div>` : ""}
         <div class="quote" ${view.quote ? "" : "hidden"}>${view.quote ? `Read from <b>${esc(view.quoteDoc)}</b>: “${esc(view.quote)}”` : ""}</div>
       </div>` : ""}
       <div>
@@ -112,6 +113,7 @@ export async function renderReview(root, id, role, view = {}) {
       </div>
     </div>`;
 
+  root.querySelector("[data-viewer]")?.addEventListener("click", () => openViewer(c.docFiles.map((d) => ({ name: d.name, url: d.url, label: docLabel(c, d) })), docIdx));
   root.querySelectorAll("[data-doc]").forEach((b) => (b.onclick = () => renderReview(root, id, role, { claim: c, doc: +b.dataset.doc })));
   root.querySelectorAll("[data-field]").forEach((tr) => (tr.onclick = () => {
     const f = c.fields[+tr.dataset.field];

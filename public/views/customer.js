@@ -1,3 +1,4 @@
+import { openViewer } from "/views/viewer.js";
 import { $, esc, php, fmtDate, api, fileToB64, toast, modal, sleep } from "/app.js";
 
 // Claims live on the server so the claim executive and manager see what the customer submits.
@@ -154,9 +155,14 @@ export function renderNewClaim(root) {
     const box = $("#sf-" + k);
     if (!box) return;
     box.innerHTML = att[k].map((it, i) => `<div class="fileitem ${it.status}">
-      <div class="between"><span class="fname">${esc(it.name)}</span><span class="small muted">${kb(it.size)}</span><button class="x" data-rm="${k}:${i}" aria-label="Remove ${esc(it.name)}">×</button></div>
+      <div class="between"><button class="fname linkish" data-prev="${k}:${i}" title="Preview">${esc(it.name)}</button><span class="small muted">${kb(it.size)}</span><button class="x" data-rm="${k}:${i}" aria-label="Remove ${esc(it.name)}">×</button></div>
       <div class="pbar"><i style="width:${it.pct}%"></i></div>
       <div class="small ${it.status === "done" ? "ok-t" : "muted"}">${it.status === "done" ? "Uploaded" : "Uploading " + it.pct + "%"}</div></div>`).join("");
+    box.querySelectorAll("[data-prev]").forEach((b) => (b.onclick = () => {
+      const [kk, i] = b.dataset.prev.split(":"), it = att[kk][+i];
+      const url = it.sample ? "/files/claim/" + it.name : (it.url ||= URL.createObjectURL(it.file));
+      openViewer([{ name: it.name, url, label: SLOTS.find((s) => s.key === kk).label, type: it.file?.type }]);
+    }));
     box.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => { const [kk, i] = b.dataset.rm.split(":"); att[kk].splice(+i, 1); paintSlot(kk); paintSummary(); }));
   }
   function paintSummary() {
@@ -313,7 +319,7 @@ export async function renderClaim(root, id, view = {}) {
     <div class="split">
       <div class="viewer card">
         <div class="tabs">${c.docFiles.map((d, i) => `<button class="tab ${i === docIdx ? "on" : ""}" data-doc="${i}">${esc(docLabel(c.documents, d.name, d.slot))}</button>`).join("")}</div>
-        ${doc?.url ? `<iframe src="${doc.url}#toolbar=0&navpanes=0" title="${esc(doc.name)}"></iframe>` : `<div class="empty">Preview is not available for this file after a page reload.</div>`}
+        ${doc?.url ? `<div class="preview"><iframe src="${doc.url}#toolbar=0&navpanes=0" title="${esc(doc.name)}" tabindex="-1"></iframe><button class="preview-open" data-viewer aria-label="Open ${esc(docLabel(c.documents, doc.name, doc.slot))} in a larger viewer"><span class="chip">Click to enlarge</span></button></div>` : `<div class="empty">Preview is not available for this file.</div>`}
         <div class="quote" ${view.quote ? "" : "hidden"}>${view.quote ? `Read from <b>${esc(view.quoteDoc)}</b>: “${esc(view.quote)}”` : ""}</div>
       </div>
       <div>
@@ -340,6 +346,7 @@ export async function renderClaim(root, id, view = {}) {
         <div class="card"><h2>Updates</h2><ul class="msglog">${c.log.map((l) => `<li><span class="muted small">${l.t}</span> ${esc(l.text)}</li>`).join("")}</ul></div>
       </div>
     </div>`;
+  root.querySelector("[data-viewer]")?.addEventListener("click", () => openViewer(c.docFiles.map((d) => ({ name: d.name, url: d.url, label: docLabel(c.documents, d.name, d.slot) })), docIdx));
   root.querySelectorAll("[data-doc]").forEach((b) => (b.onclick = () => renderClaim(root, id, { claim: c, doc: +b.dataset.doc })));
   root.querySelectorAll("[data-field]").forEach((tr) => (tr.onclick = () => {
     const f = c.fields[+tr.dataset.field];
