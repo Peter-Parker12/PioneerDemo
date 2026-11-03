@@ -57,6 +57,46 @@ export function narrate(c) {
   };
 }
 
+// ---------------- warnings shown to the executive and the manager ----------------
+// Each warning is one thing to double-check before deciding: the risk points, mismatches with what the customer
+// reported, weakly read fields, missing documents and receipt problems.
+const sameWords = (a, b) => {
+  const w = (x) => new Set(String(x || "").toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 3));
+  const A = w(a), B = w(b);
+  if (!A.size || !B.size) return false;
+  return [...A].filter((t) => B.has(t)).length / Math.min(A.size, B.size) >= 0.5;
+};
+const fmtD = (d) => (d ? new Date(d + "T00:00:00Z").toLocaleDateString("en-PH", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "-");
+
+export function warnings(c) {
+  const ev = c.evaluation, n = c.normalized, inc = c.incident, out = [];
+  const add = (level, title, detail) => out.push({ level, title, detail });
+  const fired = ev.results.filter((r) => r.status === "fail");
+
+  if (ev.score >= 60) add("high", `High risk: ${ev.score} of 100 points`, `${fired.length} rule${fired.length === 1 ? "" : "s"} fired (${fired.map((r) => r.id).join(", ")}). Suggested action: ${ev.outcome}.`);
+  else if (ev.score >= 30) add("medium", `Medium risk: ${ev.score} of 100 points`, `${fired.length} rule${fired.length === 1 ? "" : "s"} fired (${fired.map((r) => r.id).join(", ")}). Suggested action: ${ev.outcome}.`);
+  for (const r of fired.filter((x) => x.weight > 0).sort((a, b) => b.weight - a.weight)) add(r.weight >= 20 ? "high" : "medium", `${r.id} ${r.name}: +${r.weight} points`, r.detail);
+
+  if (n) {
+    const policy = ev.policy;
+    if (inc) {
+      if (inc.loss_date && n.loss_date && inc.loss_date !== n.loss_date) add("high", "Date of loss differs from the documents", `The customer entered ${fmtD(inc.loss_date)}, the documents say ${fmtD(n.loss_date)}.`);
+      if (inc.loss_place && n.loss_location && !sameWords(inc.loss_place, n.loss_location)) add("medium", "Place of loss differs from the documents", `The customer entered "${inc.loss_place}", the documents say "${n.loss_location}".`);
+      if (inc.injuries === "Yes") add("medium", "The customer reports injuries", "Check for medical records and consider a bodily-injury review.");
+      if (inc.police === "No" && ["front_collision", "rear_collision", "side_collision", "theft"].includes(n.damage_category)) add("medium", "No police report was filed", "A police report is normally required for a collision or theft.");
+    }
+    if (policy && n.plate_no && String(n.plate_no).replace(/ /g, "") !== policy.plate_no.replace(/ /g, "")) add("high", "Plate number differs from the policy", `The documents show ${n.plate_no}, the policy covers ${policy.plate_no}.`);
+    const low = (c.fields || []).filter((f) => f.confidence < 0.8).sort((a, b) => a.confidence - b.confidence);
+    if (low.length) add("medium", `${low.length} extracted field${low.length === 1 ? " was" : "s were"} read with low confidence`, low.slice(0, 4).map((f) => `${f.label} (${Math.round(f.confidence * 100)}%)`).join(", ") + ". Check them against the document.");
+    const missing = (ev.checklist || []).filter((k) => k.needed && !k.present).map((k) => k.label);
+    if (missing.length) add("high", "Required documents are missing", missing.join(", "));
+    const r10 = ev.results.find((r) => r.id === "R10");
+    if (c.receipt && r10?.status === "fail") add("medium", "The receipt does not support the estimate", r10.detail);
+  }
+  const rank = { high: 0, medium: 1 };
+  return out.sort((a, b) => rank[a.level] - rank[b.level]);
+}
+
 // ---------------- claims ----------------
 const claims = new Map();
 export const allClaims = () => [...claims.values()];
@@ -179,11 +219,12 @@ export const customerView = (c) => ({
   checklist: c.checklist, receipt: c.receipt, incident: c.incident,
   log: [...c.customerLog].reverse().map((l) => ({ t: new Date(l.at).toLocaleTimeString("en-PH", { hour: "2-digit", minute: "2-digit" }), text: l.text })),
 });
-export const listRow = (c) => ({
+export const listRow = (c) => { const w = warnings(c); return {
   id: c.id, claimant: c.claimant, type: c.type, amount: c.amount, received: c.received, due: c.due, status: c.status, assignee: c.assignee,
   priority: c.priority, score: c.evaluation.score, band: c.evaluation.band, outcome: c.evaluation.outcome, action: c.evaluation.action,
   escalation: c.escalation, decision: c.decision, source: c.source,
-});
+  warnCount: w.length, warnLevel: w.some((x) => x.level === "high") ? "high" : w.length ? "medium" : "none",
+}; };
 
 // ---------------- seed ----------------
 const flag = (id, name, weight, action, detail) => ({ id, name, status: "fail", weight, action, detail });

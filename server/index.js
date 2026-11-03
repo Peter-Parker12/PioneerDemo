@@ -214,7 +214,7 @@ app.post("/api/receipts/extract", customer, async (req, res) => {
 // Claim executive and claim manager
 // =====================================================================
 const staff = needs("executive", "manager");
-const detail = (c) => ({ ...store.listRow(c), normalized: c.normalized, fields: c.fields, documents: c.documents, docFiles: c.docFiles, checklist: c.checklist, receipt: c.receipt, incident: c.incident, evaluation: c.evaluation, narrative: c.narrative, history: c.history, escalation: c.escalation, decision: c.decision });
+const detail = (c) => ({ ...store.listRow(c), normalized: c.normalized, fields: c.fields, documents: c.documents, docFiles: c.docFiles, checklist: c.checklist, receipt: c.receipt, incident: c.incident, evaluation: c.evaluation, narrative: c.narrative, warnings: store.warnings(c), history: c.history, escalation: c.escalation, decision: c.decision });
 
 app.get("/api/claims/:id", staff, (req, res) => {
   const c = store.getClaim(req.params.id);
@@ -308,7 +308,7 @@ app.post("/api/crm/chat", agent, async (req, res) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Workforce Solution demo on http://localhost:${port} (model ${MODEL})`);
+  console.log(`Workforce Solutions demo on http://localhost:${port} (model ${MODEL})`);
   if (!status.configured) console.log("AI: ANTHROPIC_API_KEY is not set, running in demo mode (built-in demo items only)");
   else if (status.forcedDemo) console.log("AI: DEMO_MODE=1, using built-in demo items only");
   else checkKey().then(() => console.log(status.ok ? `AI: key OK, ${MODEL} answered in ${status.ms} ms` : `AI: key check FAILED (${status.error}); falling back to demo items`));

@@ -1,5 +1,5 @@
 import { $, esc, php, fmtDate, api, toast, modal } from "/app.js";
-import { statusChip, scoreClass } from "/views/review.js";
+import { statusChip, scoreClass, warnChip } from "/views/review.js";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const isFinal = (s) => ["Approved", "Rejected", "Paid"].includes(s);
@@ -43,8 +43,8 @@ export async function renderOverview(root) {
           <select id="fs" style="max-width:200px"><option value="All">All statuses</option>${["New", "In review", "Documents requested", "Escalated", "Approved", "Rejected", "Paid"].map((s) => `<option ${ui.status === s ? "selected" : ""}>${s}</option>`).join("")}</select>
           <select id="fw" style="max-width:200px"><option value="All">All executives</option>${people.map((p) => `<option ${ui.who === p.name ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
         </div>
-        <table><thead><tr><th>Claim</th><th>Claimant</th><th>Type</th><th>Amount</th><th>Handled by</th><th>Status</th><th>Risk</th><th>AI suggests</th><th>Due</th></tr></thead><tbody>
-          ${shown.map((r) => `<tr class="click ${r.status === "Escalated" ? "esc" : ""}" data-id="${r.id}"><td><b>${r.id}</b></td><td>${esc(r.claimant)}</td><td>${esc(r.type)}</td><td>${php(r.amount)}</td><td>${esc(r.assignee)}</td><td>${statusChip(r.status)}</td><td><span class="score ${scoreClass(r.score)}">${r.score}</span></td><td>${esc(r.outcome)}</td><td>${isFinal(r.status) ? '<span class="muted">-</span>' : `<span class="${r.due < todayISO() ? "due late" : ""}">${fmtDate(r.due)}</span>`}</td></tr>`).join("") || `<tr><td colspan="9" class="empty">No cases match.</td></tr>`}
+        <table><thead><tr><th>Claim</th><th>Claimant</th><th>Type</th><th>Amount</th><th>Handled by</th><th>Status</th><th>Risk</th><th>Warnings</th><th>AI suggests</th><th>Due</th></tr></thead><tbody>
+          ${shown.map((r) => `<tr class="click ${r.status === "Escalated" ? "esc" : ""}" data-id="${r.id}"><td><b>${r.id}</b></td><td>${esc(r.claimant)}</td><td>${esc(r.type)}</td><td>${php(r.amount)}</td><td>${esc(r.assignee)}</td><td>${statusChip(r.status)}</td><td><span class="score ${scoreClass(r.score)}">${r.score}</span></td><td>${warnChip(r)}</td><td>${esc(r.outcome)}</td><td>${isFinal(r.status) ? '<span class="muted">-</span>' : `<span class="${r.due < todayISO() ? "due late" : ""}">${fmtDate(r.due)}</span>`}</td></tr>`).join("") || `<tr><td colspan="10" class="empty">No cases match.</td></tr>`}
         </tbody></table>
       </div>`;
     root.querySelectorAll("[data-id]").forEach((el) => (el.onclick = (e) => { if (!e.target.closest("[data-open]")) location.hash = "#/manager/claim/" + el.dataset.id; }));

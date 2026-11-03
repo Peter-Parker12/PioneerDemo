@@ -6,6 +6,7 @@ export const statusChip = (s) => {
   const c = /approved|paid/i.test(s) ? "green" : /rejected/i.test(s) ? "red" : /escalated/i.test(s) ? "amber" : /request/i.test(s) ? "amber" : /new/i.test(s) ? "blue" : "";
   return `<span class="chip ${c}">${esc(s)}</span>`;
 };
+export const warnChip = (r) => (r.warnCount ? `<span class="chip ${r.warnLevel === "high" ? "red" : "amber"}" title="${r.warnCount} warning${r.warnCount === 1 ? "" : "s"}">! ${r.warnCount}</span>` : '<span class="muted">None</span>');
 export const scoreClass = (s) => (s >= 60 ? "high" : s >= 30 ? "med" : "low");
 const gauge = (s) => {
   const c = 2 * Math.PI * 52, col = s >= 60 ? "#d3433b" : s >= 30 ? "#e0a21a" : "#1f9d63";
@@ -16,6 +17,13 @@ const gauge = (s) => {
 const DOC_LABEL = { claim_form: "Claim form", or_cr: "OR/CR", drivers_license: "Driver's license", police_report: "Police report", repair_estimate: "Repair estimate" };
 const docLabel = (c, d) => d.slot || DOC_LABEL[c.documents?.find((x) => x.filename === d.name)?.doc_type] || d.name;
 const sizeOf = (n) => (n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
+const warningsCard = (c) => {
+  const w = c.warnings || [];
+  if (!w.length) return `<div class="card warn-card ok"><h2>Warnings <span class="chip green">None</span></h2><div class="check"><span class="dot ok">✓</span><span>Nothing stands out. The documents agree with what the customer reported and no rule fired.</span></div></div>`;
+  const hi = w.filter((x) => x.level === "high").length;
+  return `<div class="card warn-card ${hi ? "high" : "medium"}"><h2>Warnings <span class="chip ${hi ? "red" : "amber"}">${w.length}</span> <span class="muted small">Check these before you decide</span></h2>
+    ${w.map((x) => `<div class="check warn-row"><span class="dot ${x.level === "high" ? "no" : "warn"}">!</span><span><b>${esc(x.title)}</b><span class="chip ${x.level === "high" ? "red" : "amber"}" style="margin-left:6px">${x.level === "high" ? "High" : "Medium"}</span><div class="small muted">${esc(x.detail)}</div></span></div>`).join("")}</div>`;
+};
 const when = (iso) => new Date(iso).toLocaleString("en-PH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 const ACTIONS = {
@@ -55,6 +63,7 @@ export async function renderReview(root, id, role, view = {}) {
         <div class="quote" ${view.quote ? "" : "hidden"}>${view.quote ? `Read from <b>${esc(view.quoteDoc)}</b>: “${esc(view.quote)}”` : ""}</div>
       </div>` : ""}
       <div>
+        ${warningsCard(c)}
         <div class="card">
           <div class="gauge-wrap">
             ${gauge(ev.score)}

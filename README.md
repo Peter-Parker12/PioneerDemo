@@ -1,4 +1,4 @@
-# Workforce Solution - Interactive AI Demo
+# Workforce Solutions - Interactive AI Demo
 
 Two role-based portals, signed into with hardcoded demo accounts:
 
@@ -6,7 +6,7 @@ Two role-based portals, signed into with hardcoded demo accounts:
 |---|---|---|---|
 | Customer | `ramon@workforcesolution.demo` | `customer123` | Report an incident, attach documents with upload progress, watch the AI read them, submit, track status, add a repair receipt |
 | Sales agent | `angelo@workforcesolution.demo` | `agent123` | CRM workspace: lead list, selected lead details, and an AI assistant panel docked on the right that answers product questions and updates leads, sends emails, adds notes |
-| Claim executive | `maricar@workforcesolution.demo` | `executive123` | Queue of submitted claims with an AI fraud score, the rules that fired, and suggested actions: Approve, Reject, Escalate to manager, Request documents |
+| Claim executive | `maricar@workforcesolution.demo` | `executive123` | Queue of submitted claims with an AI fraud score, the rules that fired, and suggested actions: Approve, Reject, Escalate to manager, Request documents, plus a Warnings card (risk points, mismatches with what the customer entered, low-confidence reads, missing documents) |
 | Claim manager | `elena@workforcesolution.demo` | `manager123` | Case oversight (queue, team workload, highlighted escalations with the executive's note) and Rule management (view, edit, add, delete and publish fraud rules; open claims are re-scored) |
 
 Claims are shared across roles on the server (in memory, reset on restart): what the customer submits appears in the executive's queue, the executive's decision updates the customer's status, and the manager's rule changes re-score open claims.
@@ -49,3 +49,6 @@ demo-files/           the same sample PDFs, grouped for manual upload
 ```
 
 See `DEMO_SCRIPT.md` for the talk track.
+
+## Brand
+Colours, fonts and the logo follow workforcesolution.net: navy `#08182e`, teal `#00b3b0`, cobalt `#0072ff`, Montserrat headings and Poppins body. The logo files are in `public/brand/`.

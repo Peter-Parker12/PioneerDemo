@@ -83,7 +83,7 @@ const scripts = {
     await act(emit, "send_email", {
       lead: "Marites Santos",
       subject: "Your Family Protect Plus plan quotation",
-      body: `Dear Ma'am Marites,\n\nThank you for taking my call. As promised, here is the Plus plan of our Family Protect Personal Accident insurance for your family of 4:\n\n- Accidental death / permanent disability: PHP 250,000\n- Accident medical reimbursement: PHP 25,000\n- Daily hospital income: PHP 1,000 per day, up to 30 days\n- Annual premium: PHP 2,990 (about PHP 8 a day for the whole family)\n\nThe plan pays on top of PhilHealth, so your benefits are not reduced. Once your documents are complete, claims are decided within 10 working days and payment is released within 3 working days of approval.\n\nPlease feel free to share this with your husband. I'm happy to answer any of his questions.\n\nWarm regards,\nAngelo Reyes\nWorkforce Solution`,
+      body: `Dear Ma'am Marites,\n\nThank you for taking my call. As promised, here is the Plus plan of our Family Protect Personal Accident insurance for your family of 4:\n\n- Accidental death / permanent disability: PHP 250,000\n- Accident medical reimbursement: PHP 25,000\n- Daily hospital income: PHP 1,000 per day, up to 30 days\n- Annual premium: PHP 2,990 (about PHP 8 a day for the whole family)\n\nThe plan pays on top of PhilHealth, so your benefits are not reduced. Once your documents are complete, claims are decided within 10 working days and payment is released within 3 working days of approval.\n\nPlease feel free to share this with your husband. I'm happy to answer any of his questions.\n\nWarm regards,\nAngelo Reyes\nWorkforce Solutions`,
     });
     await act(emit, "update_lead", { lead: "Marites Santos", next_step: "Call to follow up on the emailed quotation", next_due: "2026-10-26" });
     await say(emit, "I sent Marites the Plus plan quotation, using the benefits and the PHP 2,990 premium from the product sheet, and mentioned that PhilHealth benefits are not reduced. I also set her next step to a follow-up call on Monday.");
@@ -110,7 +110,7 @@ async function freeText(message, emit) {
   const m = message.toLowerCase();
   const lead = listLeads().find((l) => m.includes(l.name.toLowerCase()) || m.includes(l.name.split(" ")[0].toLowerCase()));
   if (lead && /(e-?mail|mail)/.test(m)) {
-    await act(emit, "send_email", { lead: lead.id, subject: `Following up on your ${lead.product} inquiry`, body: `Dear ${lead.name.split(" ")[0]},\n\nThank you for your interest in our ${lead.product} cover. I'd be glad to walk you through the options and answer any questions. When is a good time for a short call this week?\n\nWarm regards,\nAngelo Reyes\nWorkforce Solution` });
+    await act(emit, "send_email", { lead: lead.id, subject: `Following up on your ${lead.product} inquiry`, body: `Dear ${lead.name.split(" ")[0]},\n\nThank you for your interest in our ${lead.product} cover. I'd be glad to walk you through the options and answer any questions. When is a good time for a short call this week?\n\nWarm regards,\nAngelo Reyes\nWorkforce Solutions` });
     return say(emit, `I emailed **${lead.name}** a short follow-up and logged it in their activity.`);
   }
   const stage = STAGES.find((s) => m.includes(s.toLowerCase()));

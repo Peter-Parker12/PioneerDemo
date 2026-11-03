@@ -1,5 +1,5 @@
 import { $, esc, php, fmtDate, api } from "/app.js";
-import { statusChip, scoreClass } from "/views/review.js";
+import { statusChip, scoreClass, warnChip } from "/views/review.js";
 
 const FILTERS = ["All", "To review", "Documents requested", "Escalated", "Decided"];
 const ui = { filter: "To review" };
@@ -27,8 +27,8 @@ export async function renderQueue(root) {
       </div>
       <div class="card">
         <div class="toolbar"><div class="stagebar">${FILTERS.map((f) => `<button data-f="${f}" class="${ui.filter === f ? "on" : ""}">${f}<span>${f === "All" ? rows.length : rows.filter((r) => group(r) === f).length}</span></button>`).join("")}</div></div>
-        <table><thead><tr><th>Claim</th><th>Claimant</th><th>Type</th><th>Amount</th><th>Received</th><th>Risk</th><th>AI suggests</th><th>Status</th><th>Due</th></tr></thead><tbody>
-          ${shown.map((r) => `<tr class="click ${r.status === "New" ? "new" : ""}" data-id="${r.id}"><td><b>${r.id}</b>${r.status === "New" ? ' <span class="chip blue">New</span>' : ""}</td><td>${esc(r.claimant)}</td><td>${esc(r.type)}</td><td>${php(r.amount)}</td><td>${fmtDate(r.received)}</td><td><span class="score ${scoreClass(r.score)}">${r.score}</span></td><td>${esc(r.outcome)}</td><td>${statusChip(r.status)}</td><td>${dueCell(r)}</td></tr>`).join("") || `<tr><td colspan="9" class="empty">Nothing here. New customer claims will appear in "To review".</td></tr>`}
+        <table><thead><tr><th>Claim</th><th>Claimant</th><th>Type</th><th>Amount</th><th>Received</th><th>Risk</th><th>Warnings</th><th>AI suggests</th><th>Status</th><th>Due</th></tr></thead><tbody>
+          ${shown.map((r) => `<tr class="click ${r.status === "New" ? "new" : ""}" data-id="${r.id}"><td><b>${r.id}</b>${r.status === "New" ? ' <span class="chip blue">New</span>' : ""}</td><td>${esc(r.claimant)}</td><td>${esc(r.type)}</td><td>${php(r.amount)}</td><td>${fmtDate(r.received)}</td><td><span class="score ${scoreClass(r.score)}">${r.score}</span></td><td>${warnChip(r)}</td><td>${esc(r.outcome)}</td><td>${statusChip(r.status)}</td><td>${dueCell(r)}</td></tr>`).join("") || `<tr><td colspan="10" class="empty">Nothing here. New customer claims will appear in "To review".</td></tr>`}
         </tbody></table>
       </div>`;
     root.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => { ui.filter = b.dataset.f; paint(); }));

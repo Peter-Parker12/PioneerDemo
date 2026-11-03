@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Workforce Solution demo: customer claims portal + agent CRM with AI assistant",
+  "description": "Workforce Solutions demo: customer claims portal + agent CRM with AI assistant",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",

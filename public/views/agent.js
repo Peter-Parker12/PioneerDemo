@@ -163,7 +163,7 @@ function emailModal(l, done) {
     <div class="between"><h2>Email ${esc(l.name)}</h2><button class="btn sm" id="x">Close</button></div>
     <label class="f" for="to">To</label><input type="text" id="to" value="${esc(l.email)}" disabled>
     <label class="f" for="subj">Subject</label><input type="text" id="subj" value="Following up on your ${esc(l.product)} inquiry">
-    <label class="f" for="body">Message</label><textarea id="body" rows="9">Dear ${esc(first)},\n\nThank you for your interest in our ${esc(l.product)} cover. I'd be glad to walk you through the options and answer any questions. When is a good time for a short call this week?\n\nWarm regards,\nAngelo Reyes\nWorkforce Solution</textarea>
+    <label class="f" for="body">Message</label><textarea id="body" rows="9">Dear ${esc(first)},\n\nThank you for your interest in our ${esc(l.product)} cover. I'd be glad to walk you through the options and answer any questions. When is a good time for a short call this week?\n\nWarm regards,\nAngelo Reyes\nWorkforce Solutions</textarea>
     <div class="between" style="margin-top:14px"><span class="muted small">Demo: emails are logged, not actually sent.</span><button class="btn brand" id="send">Send email</button></div>`);
   m.el.querySelector("#x").onclick = m.close;
   m.el.querySelector("#send").onclick = async () => {

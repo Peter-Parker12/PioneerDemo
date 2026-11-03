@@ -13,7 +13,7 @@ export function renderLogin(root, onDone) {
   root.innerHTML = `
     <div class="login-wrap"><div class="login">
       <div class="hero">
-        <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px">${LOGO}Workforce Solution</div>
+        <div class="login-logo">${LOGO}</div>
         <div><h1>Insurance that works as hard as your team.</h1>
           <p>Customers file claims in minutes. Agents manage leads and get answers from one AI assistant.</p></div>
         <div class="small" style="opacity:.7">Demo environment. All names and data are fictional.</div>

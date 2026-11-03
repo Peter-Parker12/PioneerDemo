@@ -113,7 +113,7 @@ export const tools = [
     input_schema: { type: "object", properties: { lead: leadRef, note: { type: "string" } }, required: ["lead", "note"] } },
   { name: "create_lead", description: "Create a new lead.",
     input_schema: { type: "object", properties: { name: { type: "string" }, phone: { type: "string" }, email: { type: "string" }, product: { type: "string", enum: ["Personal Accident", "Motor Comprehensive", "Home Fire"] }, source: { type: "string" }, notes: { type: "string" } }, required: ["name"] } },
-  { name: "send_email", description: "Send an email to a lead on the agent's behalf. Write a complete, professional email signed 'Angelo Reyes, Workforce Solution'. Only include product facts that come from the product sheets.",
+  { name: "send_email", description: "Send an email to a lead on the agent's behalf. Write a complete, professional email signed 'Angelo Reyes, Workforce Solutions'. Only include product facts that come from the product sheets.",
     input_schema: { type: "object", properties: { lead: leadRef, subject: { type: "string" }, body: { type: "string" } }, required: ["lead", "subject", "body"] } },
 ];
 

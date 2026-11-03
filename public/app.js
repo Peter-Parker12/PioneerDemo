@@ -11,7 +11,7 @@ export const php = (n) => "₱" + Math.round(Number(n) || 0).toLocaleString("en-
 export const fmtDate = (d) => (d ? new Date(d.slice(0, 10) + "T00:00:00").toLocaleDateString("en-PH", { day: "numeric", month: "short", year: "numeric" }) : "-");
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export const LOGO = `<svg class="logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#0fa3a3"/><path d="M6 10l4.5 12L16 12l5.5 10L26 10" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+export const LOGO = `<img class="logo" src="/brand/logo-white.png" alt="Workforce Solutions">`; // official white wordmark, for dark backgrounds
 
 // ---------- session ----------
 const SKEY = "wfs_session";
@@ -110,7 +110,7 @@ let ai = null;
 function paintHeader(sec) {
   const s = session.get();
   const top = $("#top");
-  if (!s) { top.innerHTML = `<a class="brand" href="#/login">${LOGO}<span>Workforce Solution</span></a>`; return; }
+  if (!s) { top.innerHTML = `<a class="brand" href="#/login">${LOGO}</a>`; return; }
   const NAV = {
     customer: [["customer", "My account", "#/customer"], ["new", "Submit a claim", "#/customer/new"]],
     agent: [["leads", "Leads", "#/agent"], ["products", "Products", "#/agent/products"]],
@@ -120,7 +120,7 @@ function paintHeader(sec) {
   const PORTAL = { customer: "Customer portal", agent: "Agent workspace", executive: "Claims workspace", manager: "Manager workspace" };
   const nav = NAV[s.role];
   top.innerHTML = `
-    <a class="brand" href="#/${s.role}">${LOGO}<span>Workforce Solution</span><em>${PORTAL[s.role]}</em></a>
+    <a class="brand" href="#/${s.role}">${LOGO}<em>${PORTAL[s.role]}</em></a>
     <nav id="nav">${nav.map(([k, l, h]) => `<a href="${h}" data-nav="${k}" class="${k === sec ? "on" : ""}">${l}</a>`).join("")}</nav>
     <div class="who">
       <span class="pill ${ai?.live ? "live" : "demo"}" title="${esc(ai?.live ? "Claude is connected" : ai?.configured ? "Claude key check failed, showing built-in demo data" : "No API key set, showing built-in demo data")}"><i></i>${ai?.live ? "Live AI" : "Demo mode"}</span>
