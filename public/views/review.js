@@ -48,6 +48,30 @@ export async function renderReview(root, id, role, view = {}) {
   const actionable = role === "manager" ? ["Escalated", "New", "In review", "Documents requested"].includes(c.status) : ["New", "In review", "Documents requested"].includes(c.status);
   const suggested = SUGGESTED[ev.action];
 
+  const tab = view.tab || "overview";
+  const actionBar = `<div class="actionbar">
+          ${actionable ? `<span class="muted small">AI recommends, ${role === "manager" ? "the manager" : "the executive"} decides.</span><span class="right"></span>
+            ${ACTIONS[role].map(([k, l, cls]) => `<button class="btn ${cls} ${k === suggested ? "suggested" : ""}" data-act="${k}" ${k === suggested ? 'title="Matches the AI suggestion"' : ""}>${l}</button>`).join("")}`
+            : `<span>This claim is <b>${esc(c.status)}</b>${c.decision ? `, decided by ${esc(c.decision.by)}` : ""}. No further action here.</span>`}
+        </div>`;
+  const documentsTab = `
+    <div class="doctab">
+      <div class="doclist card"><h2>Documents <span class="muted small">${c.docFiles.length} file${c.docFiles.length === 1 ? "" : "s"}</span></h2>
+        ${c.docFiles.length ? c.docFiles.map((d, i) => {
+          const sum = c.documents?.find((x) => x.filename === d.name)?.summary;
+          return `<button class="docitem ${i === docIdx ? "on" : ""}" data-doc="${i}"><b>${esc(docLabel(c, d))}</b><span class="small muted">${esc(d.name)}${d.size ? ", " + sizeOf(d.size) : ""}</span>${sum ? `<span class="small">${esc(sum)}</span>` : ""}</button>`;
+        }).join("") : `<div class="muted">No documents are on file for this claim.</div>`}
+      </div>
+      <div class="docpane card">
+        ${doc?.url ? `<div class="between" style="margin-bottom:10px"><div><b>${esc(docLabel(c, doc))}</b> <span class="muted small">${esc(doc.name)}</span></div>
+            <div style="display:flex;gap:6px"><button class="btn sm" data-viewer-btn>Open full screen</button><a class="btn sm" href="${doc.url}" download="${esc(doc.name)}">Download</a><a class="btn sm" href="${doc.url}" target="_blank" rel="noopener">New tab</a></div></div>
+          <div class="preview big"><iframe src="${doc.url}#toolbar=0&navpanes=0" title="${esc(doc.name)}" tabindex="-1"></iframe><button class="preview-open" data-viewer aria-label="Open ${esc(docLabel(c, doc))} in a larger viewer"><span class="chip">Click to enlarge</span></button></div>` : `<div class="empty">Select a document to preview it.</div>`}
+      </div>
+    </div>
+    ${actionBar}`;
+  const tabsBar = `<div class="reviewtabs" role="tablist">
+    <button role="tab" aria-selected="${tab === "overview"}" class="${tab === "overview" ? "on" : ""}" data-tab="overview">Overview</button>
+    <button role="tab" aria-selected="${tab === "documents"}" class="${tab === "documents" ? "on" : ""}" data-tab="documents">Documents <span class="chip">${c.docFiles.length}</span></button></div>`;
   root.innerHTML = `
     <div class="page-head">
       <div><a href="${back}" class="small">← ${role === "manager" ? "Case oversight" : "Claims queue"}</a><h1>${c.id}, ${esc(c.claimant)}</h1>
@@ -56,7 +80,9 @@ export async function renderReview(root, id, role, view = {}) {
     </div>
     ${c.escalation && c.status === "Escalated" ? `<div class="callout"><b>Escalated by ${esc(c.escalation.by)}</b> <span class="muted small">${when(c.escalation.at)}</span><div>${esc(c.escalation.note)}</div></div>` : ""}
     ${c.decision ? `<div class="callout ok"><b>${c.decision.action === "approve" ? "Approved" : "Rejected"} by ${esc(c.decision.by)}</b> <span class="muted small">${when(c.decision.at)}</span>${c.decision.note ? `<div>${esc(c.decision.note)}</div>` : ""}</div>` : ""}
-    <div class="${c.docFiles.length ? "split" : ""}">
+    ${tabsBar}
+    ${tab === "documents" ? documentsTab : ""}
+    <div class="${c.docFiles.length ? "split" : ""}" ${tab === "documents" ? "hidden" : ""}>
       ${c.docFiles.length ? `<div class="viewer card">
         <div class="tabs">${c.docFiles.map((d, i) => `<button class="tab ${i === docIdx ? "on" : ""}" data-doc="${i}">${esc(docLabel(c, d))}</button>`).join("")}</div>
         ${doc?.url ? `<div class="preview"><iframe src="${doc.url}#toolbar=0&navpanes=0" title="${esc(doc.name)}" tabindex="-1"></iframe><button class="preview-open" data-viewer aria-label="Open ${esc(docLabel(c, doc))} in a larger viewer"><span class="chip">Click to enlarge</span></button></div>` : ""}
@@ -124,21 +150,19 @@ export async function renderReview(root, id, role, view = {}) {
 
         <div class="card"><h2>Audit trail</h2><ul class="audit">${[...c.history].reverse().map((a) => `<li><span class="muted small">${when(a.at)}</span> <b>${esc(a.who)}</b> ${esc(a.text)}</li>`).join("")}</ul></div>
 
-        <div class="actionbar">
-          ${actionable ? `<span class="muted small">AI recommends, ${role === "manager" ? "the manager" : "the executive"} decides.</span><span class="right"></span>
-            ${ACTIONS[role].map(([k, l, cls]) => `<button class="btn ${cls} ${k === suggested ? "suggested" : ""}" data-act="${k}" ${k === suggested ? 'title="Matches the AI suggestion"' : ""}>${l}</button>`).join("")}`
-            : `<span>This claim is <b>${esc(c.status)}</b>${c.decision ? `, decided by ${esc(c.decision.by)}` : ""}. No further action here.</span>`}
-        </div>
+        ${actionBar}
       </div>
     </div>`;
 
+  root.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => renderReview(root, id, role, { claim: c, tab: b.dataset.tab, doc: docIdx })));
   const viewerDocs = () => c.docFiles.map((d) => ({ name: d.name, url: d.url, label: docLabel(c, d) }));
   root.querySelector("[data-viewer]")?.addEventListener("click", () => openViewer(viewerDocs(), docIdx));
+  root.querySelector("[data-viewer-btn]")?.addEventListener("click", () => openViewer(viewerDocs(), docIdx));
   root.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => openViewer(viewerDocs(), +b.dataset.view)));
-  root.querySelectorAll("[data-doc]").forEach((b) => (b.onclick = () => renderReview(root, id, role, { claim: c, doc: +b.dataset.doc })));
+  root.querySelectorAll("[data-doc]").forEach((b) => (b.onclick = () => renderReview(root, id, role, { claim: c, tab, doc: +b.dataset.doc })));
   root.querySelectorAll("[data-field]").forEach((tr) => (tr.onclick = () => {
     const f = c.fields[+tr.dataset.field];
-    renderReview(root, id, role, { claim: c, doc: Math.max(0, c.docFiles.findIndex((d) => d.name === f.source_doc)), quote: f.source_quote, quoteDoc: f.source_doc });
+    renderReview(root, id, role, { claim: c, tab, doc: Math.max(0, c.docFiles.findIndex((d) => d.name === f.source_doc)), quote: f.source_quote, quoteDoc: f.source_doc });
   }));
   root.querySelectorAll("[data-act]").forEach((b) => (b.onclick = () => decide(root, c, role, b.dataset.act)));
 }
@@ -166,7 +190,7 @@ function decide(root, c, role, action) {
     if (cfg.need && !note.trim()) { m.el.querySelector("#err").textContent = "Please fill in this field."; return; }
     try {
       const updated = await api(`/claims/${c.id}/decision`, { action, note });
-      m.close(); toast(`${c.id}: ${updated.status}`); renderReview(root, c.id, role, { claim: updated });
+      m.close(); toast(`${c.id}: ${updated.status}`); renderReview(root, c.id, role, { claim: updated, tab: root.querySelector(".reviewtabs .on")?.dataset.tab });
     } catch (e) { m.el.querySelector("#err").textContent = e.message; }
   };
 }

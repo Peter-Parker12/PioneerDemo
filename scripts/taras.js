@@ -109,14 +109,15 @@ export function taras(d, f) {
   d.moveTo(cx + 16, cy).lineTo(L + W - 20, cy).dash(4, { space: 3 }).stroke().undash();
   d.rect(cx - 130, cy - 4, 40, 8).fill(INK);                    // concrete island
   d.font("Helvetica").fontSize(6.5).fillColor(INK);
-  d.text("Concrete island (point of impact)", cx - 160, cy - 15, { lineBreak: false });
-  d.text("V1 Toyota Vios NCX 4821  >>> EAST", cx - 215, cy + 7, { lineBreak: false });
-  d.text("V2 motorcycle (unidentified)", cx - 110, cy - 28, { lineBreak: false });
-  d.text("COMMONWEALTH AVE.", L + 40, cy + 20, { lineBreak: false });
-  d.text("TANDANG SORA AVE.", cx + 22, y + 24, { lineBreak: false });
+  const sk = f.sketch || {};
+  d.text(sk.impact ?? "Concrete island (point of impact)", cx - 160, cy - 15, { lineBreak: false });
+  d.text(sk.v1 ?? "V1 Toyota Vios NCX 4821  >>> EAST", cx - 215, cy + 7, { lineBreak: false });
+  d.text(sk.v2 ?? "V2 motorcycle (unidentified)", cx - 110, cy - 28, { lineBreak: false });
+  d.text(sk.road ?? "COMMONWEALTH AVE.", L + 40, cy + 20, { lineBreak: false });
+  d.text(sk.road2 ?? "TANDANG SORA AVE.", cx + 22, y + 24, { lineBreak: false });
   d.text("N", cx + 100, y + 26, { lineBreak: false });
   d.moveTo(cx + 103, y + 46).lineTo(cx + 103, y + 34).lineWidth(1).stroke();
-  d.fontSize(6.3).fillColor(GREY).text("Landmark 1: Tandang Sora flyover, 60 m west.  Landmark 2: Philcoa, 1.4 km east.", L + 6, y + sh - 12, { lineBreak: false });
+  d.fontSize(6.3).fillColor(GREY).text(sk.note ?? "Landmark 1: Tandang Sora flyover, 60 m west.  Landmark 2: Philcoa, 1.4 km east.", L + 6, y + sh - 12, { lineBreak: false });
 
   // ---------- page 2: vehicles ----------
   d.addPage({ size: "A4", margin: 24 });

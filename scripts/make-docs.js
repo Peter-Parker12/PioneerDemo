@@ -2,6 +2,7 @@
 // Run: npm run make-docs   (output is committed, so this is only needed to regenerate)
 import PDFDocument from "pdfkit";
 import { taras } from "./taras.js";
+import { makeSeedDocs } from "./seed-docs.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -94,7 +95,7 @@ make(path.join(claimDir, "3-drivers-license.pdf"), (d) => {
   ]);
 });
 
-make(path.join(claimDir, "4-police-report.pdf"), (d) => taras(d, {
+const heroTaras = {
   reportNo: "2026-10-3381", station: "QCPD Station 3 (Batasan)", region: "NCRPO", date: "03 Oct 2026",
   vehicles: 2, driverCas: 0, paxCas: 0, pedCas: 0, severity: 4,
   month: "10", day: "02", year: "2026", dateLong: "October 2, 2026", weekday: "Friday", time: "2140H",
@@ -110,7 +111,8 @@ make(path.join(claimDir, "4-police-report.pdf"), (d) => taras(d, {
   recommendation: "Follow up CCTV along Commonwealth Avenue to identify the motorcycle. Issue a certified true copy of this report to the insurer upon request.",
   status: "Under investigation. Hit and run by an unidentified motorcycle rider; no third-party claim filed.",
   investigator: "PO3 RICARDO D. MANALO", supervisor: "PCPT ALMA R. TORRES",
-}, 24));
+};
+make(path.join(claimDir, "4-police-report.pdf"), (d) => taras(d, heroTaras, 24));
 
 make(path.join(claimDir, "5-repair-estimate.pdf"), (d) => {
   title(d, "BONIFACIO AUTO WORKS", "Collision repair and repainting - 118 Aurora Blvd., Quezon City - TIN 214-889-307-000 VAT");
@@ -161,4 +163,5 @@ make(path.join(receiptDir, "receipt-parts-supply.pdf"), (d) => {
   d.moveDown(0.5);
   rows(d, [["TOTAL", "26,700.00"]]);
 });
+makeSeedDocs({ make, title, rows, table, php, root, heroTaras });
 console.log("PDFs written");

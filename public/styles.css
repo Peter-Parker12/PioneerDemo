@@ -322,3 +322,16 @@ body.vwr-open{overflow:hidden}
 .warn-row{align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
 .warn-row:first-of-type{border-top:0}
 .dot.warn{background:var(--amber)}
+
+/* ---------- review tabs + documents tab ---------- */
+.reviewtabs{display:flex;gap:4px;margin:0 0 16px;border-bottom:1px solid var(--line)}
+.reviewtabs button{font:inherit;font-weight:600;padding:10px 16px;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:8px}
+.reviewtabs button:hover{color:var(--text)}
+.reviewtabs button.on{color:var(--text);border-bottom-color:var(--brand)}
+.doctab{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;align-items:start}
+.doclist{position:sticky;top:74px}
+.docitem{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;font:inherit;color:inherit;background:none;border:1px solid transparent;border-bottom-color:var(--line);padding:10px 8px;border-radius:8px;cursor:pointer}
+.docitem:hover{background:#f4f7fb}
+.docitem.on{background:var(--brand-bg);border-color:#a9e3e2}
+.preview.big iframe{width:100%;height:calc(100vh - 290px);min-height:480px;border:1px solid var(--line);border-radius:8px;background:#fff}
+@media(max-width:980px){.doctab{grid-template-columns:1fr}.doclist{position:static}}

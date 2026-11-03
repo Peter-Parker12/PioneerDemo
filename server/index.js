@@ -46,6 +46,7 @@ app.get("/files/uploads/:id/:name", (req, res) => {
   if (!u) return res.status(404).end();
   res.type(u.mediaType).send(u.buf);
 });
+app.use("/files/seed", express.static(path.join(root, "data/claims/seed")));
 app.use("/files/receipts", express.static(path.join(root, "data/receipts")));
 
 const fail = (res, e) => {
